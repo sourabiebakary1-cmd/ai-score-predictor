@@ -1,1 +1,1 @@
-
+import streamlit as st st.title("Predicteur de Score IA") st.write("Bienvenue dans ton application") equipe1 = st.text_input("Nom equipe 1") equipe2 = st.text_input("Nom equipe 2") if st.button("Predire le score"):st.success("Score probable : 2 - 1")   
