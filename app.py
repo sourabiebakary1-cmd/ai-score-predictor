@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import poisson
 
-st.title("EA Sports FC 25 - Analyse Complète")
+st.title("EA Sports FC 25 - Modèle Intelligent 🔥")
 
 df = pd.read_csv("matches.csv")
 
@@ -12,22 +12,33 @@ team2 = st.text_input("Entrez le nom de l'équipe 2")
 
 def analyse_match(team1, team2):
 
-    team1_home = df[df["home_team"] == team1]
-    team2_away = df[df["away_team"] == team2]
-
-    if len(team1_home) == 0 or len(team2_away) == 0:
+    if team1 not in df["home_team"].values or team2 not in df["away_team"].values:
         return None
 
-    avg_team1 = team1_home["home_goals"].mean()
-    avg_team2 = team2_away["away_goals"].mean()
+    # Moyenne buts ligue
+    league_home_avg = df["home_goals"].mean()
+    league_away_avg = df["away_goals"].mean()
 
-    max_goals = 5
+    # Stats équipe 1 (domicile)
+    team1_home = df[df["home_team"] == team1]
+    team1_attack = team1_home["home_goals"].mean() / league_home_avg
+    team1_defense = team1_home["away_goals"].mean() / league_away_avg
 
+    # Stats équipe 2 (extérieur)
+    team2_away = df[df["away_team"] == team2]
+    team2_attack = team2_away["away_goals"].mean() / league_away_avg
+    team2_defense = team2_away["home_goals"].mean() / league_home_avg
+
+    # Lambdas Poisson améliorés
+    lambda_home = team1_attack * team2_defense * league_home_avg
+    lambda_away = team2_attack * team1_defense * league_away_avg
+
+    max_goals = 6
     prob_matrix = np.zeros((max_goals, max_goals))
 
     for i in range(max_goals):
         for j in range(max_goals):
-            prob_matrix[i][j] = poisson.pmf(i, avg_team1) * poisson.pmf(j, avg_team2)
+            prob_matrix[i][j] = poisson.pmf(i, lambda_home) * poisson.pmf(j, lambda_away)
 
     home_win = np.sum(np.tril(prob_matrix, -1))
     draw = np.sum(np.diag(prob_matrix))
@@ -64,7 +75,7 @@ if st.button("🚀 Analyser le match"):
     result = analyse_match(team1, team2)
 
     if result is None:
-        st.error("Pas assez de données")
+        st.error("Equipe non trouvée dans les données")
     else:
         st.subheader("🔥 Top 3 Scores Probables")
         for score in result["top_scores"]:
@@ -77,4 +88,4 @@ if st.button("🚀 Analyser le match"):
 
         st.subheader("⚽ Marchés supplémentaires")
         st.write(f"Over 2.5 buts : {round(result['over_25']*100,2)}%")
-        st.write(f"BTTS (les deux équipes marquent) : {round(result['btts']*100,2)}%")
+        st.write(f"BTTS : {round(result['btts']*100,2)}%")
