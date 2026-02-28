@@ -64,3 +64,4 @@ if st.button("🚀 Prédire le score"):
             )
     else:
         st.warning("⚠️ Veuillez entrer les deux équipes")
+# test
