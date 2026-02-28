@@ -30,8 +30,13 @@ team1 = st.text_input("Entrez le nom de l'équipe 1")
 team2 = st.text_input("Entrez le nom de l'équipe 2")
 
 def generate_realistic_score():
-    base_scores = [(1,0),(0,1),(1,1),(2,1),(1,2),(2,0),(0,2),(2,2),(3,1),(1,3)]
-    return random.choice(base_scores)
+    force_team1 = random.randint(1, 5)
+    force_team2 = random.randint(1, 5)
+
+    goals_team1 = random.randint(0, force_team1)
+    goals_team2 = random.randint(0, force_team2)
+
+    return (goals_team1, goals_team2)
 
 if st.button("🚀 Prédire le score"):
     if team1 and team2:
