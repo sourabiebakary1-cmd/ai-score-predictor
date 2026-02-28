@@ -1,5 +1,4 @@
 import streamlit as st
-import random
 
 st.set_page_config(page_title="AI Score Predictor", page_icon="⚽", layout="centered")
 
