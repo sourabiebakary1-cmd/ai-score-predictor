@@ -3,33 +3,37 @@ import pandas as pd
 import numpy as np
 from scipy.stats import poisson
 
-st.title("EA Sports FC 25 - Modèle Intelligent 🔥")
+st.title("EA Sports FC 25 - Modèle Pro 🔥")
 
 df = pd.read_csv("matches.csv")
 
 team1 = st.text_input("Entrez le nom de l'équipe 1")
 team2 = st.text_input("Entrez le nom de l'équipe 2")
 
+def weighted_average(goals):
+    if len(goals) == 0:
+        return 0
+    weights = np.arange(1, len(goals)+1)
+    return np.average(goals, weights=weights)
+
 def analyse_match(team1, team2):
 
     if team1 not in df["home_team"].values or team2 not in df["away_team"].values:
         return None
 
-    # Moyenne buts ligue
     league_home_avg = df["home_goals"].mean()
     league_away_avg = df["away_goals"].mean()
 
-    # Stats équipe 1 (domicile)
-    team1_home = df[df["home_team"] == team1]
-    team1_attack = team1_home["home_goals"].mean() / league_home_avg
-    team1_defense = team1_home["away_goals"].mean() / league_away_avg
+    # 5 derniers matchs domicile team1
+    team1_home = df[df["home_team"] == team1].tail(5)
+    team1_attack = weighted_average(team1_home["home_goals"]) / league_home_avg
+    team1_defense = weighted_average(team1_home["away_goals"]) / league_away_avg
 
-    # Stats équipe 2 (extérieur)
-    team2_away = df[df["away_team"] == team2]
-    team2_attack = team2_away["away_goals"].mean() / league_away_avg
-    team2_defense = team2_away["home_goals"].mean() / league_home_avg
+    # 5 derniers matchs extérieur team2
+    team2_away = df[df["away_team"] == team2].tail(5)
+    team2_attack = weighted_average(team2_away["away_goals"]) / league_away_avg
+    team2_defense = weighted_average(team2_away["home_goals"]) / league_home_avg
 
-    # Lambdas Poisson améliorés
     lambda_home = team1_attack * team2_defense * league_home_avg
     lambda_away = team2_attack * team1_defense * league_away_avg
 
@@ -44,21 +48,10 @@ def analyse_match(team1, team2):
     draw = np.sum(np.diag(prob_matrix))
     away_win = np.sum(np.triu(prob_matrix, 1))
 
-    over_25 = 0
-    btts = 0
+    over_25 = sum(prob_matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 2)
+    btts = sum(prob_matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i>0 and j>0)
 
-    for i in range(max_goals):
-        for j in range(max_goals):
-            if i + j > 2:
-                over_25 += prob_matrix[i][j]
-            if i > 0 and j > 0:
-                btts += prob_matrix[i][j]
-
-    scores = []
-    for i in range(max_goals):
-        for j in range(max_goals):
-            scores.append((i, j, prob_matrix[i][j]))
-
+    scores = [(i, j, prob_matrix[i][j]) for i in range(max_goals) for j in range(max_goals)]
     scores = sorted(scores, key=lambda x: x[2], reverse=True)
 
     return {
@@ -75,7 +68,7 @@ if st.button("🚀 Analyser le match"):
     result = analyse_match(team1, team2)
 
     if result is None:
-        st.error("Equipe non trouvée dans les données")
+        st.error("Equipe non trouvée")
     else:
         st.subheader("🔥 Top 3 Scores Probables")
         for score in result["top_scores"]:
