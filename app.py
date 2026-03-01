@@ -17,12 +17,12 @@ away_team = st.selectbox("Equipe Extérieure", teams)
 
 if home_team != away_team:
 
-    # 📊 Calcul automatique des lambdas
+    # Calcul automatique des lambdas
     home_matches = data[data["HomeTeam"] == home_team]
     away_matches = data[data["AwayTeam"] == away_team]
 
-    lambda_home = home_matches["omeGoals"].mean()
-lambda_away = away_matches["AwayGoals"].mean()
+    lambda_home = home_matches["HomeGoals"].mean()
+    lambda_away = away_matches["AwayGoals"].mean()
 
     max_goals = 6
     prob_matrix = np.zeros((max_goals, max_goals))
@@ -56,17 +56,17 @@ lambda_away = away_matches["AwayGoals"].mean()
     best_market = max(markets, key=markets.get)
     best_probability = markets[best_market]
 
-    # 🎯 Top 3 scores exacts
-    flat_probs = prob_matrix.flatten()
-    top_indices = flat_probs.argsort()[-3:][::-1]
-
     st.subheader("📊 Probabilités")
 
     st.write(f"🏠 Victoire {home_team} : {round(home_win*100,2)} %")
     st.write(f"🤝 Match nul : {round(draw*100,2)} %")
     st.write(f"✈️ Victoire {away_team} : {round(away_win*100,2)} %")
 
+    # 🎯 Top 3 scores exacts
     st.subheader("🎯 Top 3 Scores Exact")
+
+    flat_probs = prob_matrix.flatten()
+    top_indices = flat_probs.argsort()[-3:][::-1]
 
     for idx in top_indices:
         i = idx // max_goals
