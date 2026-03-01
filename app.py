@@ -1,51 +1,60 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+from scipy.stats import poisson
 
-st.title("🔥 BAKARY PREDICTOR PRO 🔥")
+st.title("🔥 BAKARY PREDICTOR ULTRA PRO 🔥")
 
-st.header("Entrer les statistiques des équipes")
+# Charger les données
+data = pd.read_csv("matches.csv")
 
-# Equipe A
-st.subheader("Equipe A")
-a_scored = st.number_input("Moyenne buts marqués A", 0.0, 10.0, 3.0)
-a_conceded = st.number_input("Moyenne buts encaissés A", 0.0, 10.0, 2.0)
+teams = sorted(list(set(data["HomeTeam"])))
 
-# Equipe B
-st.subheader("Equipe B")
-b_scored = st.number_input("Moyenne buts marqués B", 0.0, 10.0, 3.0)
-b_conceded = st.number_input("Moyenne buts encaissés B", 0.0, 10.0, 2.0)
+home_team = st.selectbox("Equipe Domicile", teams)
+away_team = st.selectbox("Equipe Extérieur", teams)
 
-if st.button("Analyser le match"):
+if home_team != away_team:
 
-    force_a = (a_scored + b_conceded) / 2
-    force_b = (b_scored + a_conceded) / 2
+    # Moyennes buts
+    home_avg_scored = data[data["HomeTeam"] == home_team]["HomeGoals"].mean()
+    home_avg_conceded = data[data["HomeTeam"] == home_team]["AwayGoals"].mean()
 
-    st.subheader("📊 Analyse intelligente")
+    away_avg_scored = data[data["AwayTeam"] == away_team]["AwayGoals"].mean()
+    away_avg_conceded = data[data["AwayTeam"] == away_team]["HomeGoals"].mean()
 
-    if force_a > force_b:
-        st.success("Victoire probable : Equipe A")
-        confiance = min((force_a - force_b) * 20, 95)
-    elif force_b > force_a:
-        st.success("Victoire probable : Equipe B")
-        confiance = min((force_b - force_a) * 20, 95)
-    else:
-        st.warning("Match équilibré")
-        confiance = 50
+    # Attaque attendue
+    lambda_home = (home_avg_scored + away_avg_conceded) / 2
+    lambda_away = (away_avg_scored + home_avg_conceded) / 2
 
-    st.write(f"Confiance : {round(confiance,1)} %")
+    st.subheader("📊 Probabilités du match")
 
-    total = force_a + force_b
+    max_goals = 6
+    prob_matrix = np.zeros((max_goals, max_goals))
 
-    if a_scored > 2 and b_scored > 2:
-        st.info("BTTS : OUI probable")
+    for i in range(max_goals):
+        for j in range(max_goals):
+            prob_matrix[i, j] = poisson.pmf(i, lambda_home) * poisson.pmf(j, lambda_away)
 
-    if total > 6:
-        st.info("Over 5.5 probable")
+    home_win = np.sum(np.tril(prob_matrix, -1))
+    draw = np.sum(np.diag(prob_matrix))
+    away_win = np.sum(np.triu(prob_matrix, 1))
 
-    score1 = f"{round(force_a)} - {round(force_b)}"
-    score2 = f"{round(force_a+1)} - {round(force_b)}"
-    score3 = f"{round(force_a)} - {round(force_b+1)}"
+    st.write(f"🏠 Victoire {home_team} : {round(home_win*100,2)} %")
+    st.write(f"🤝 Match nul : {round(draw*100,2)} %")
+    st.write(f"✈️ Victoire {away_team} : {round(away_win*100,2)} %")
 
-    st.subheader("🎯 3 Scores Exact Probables")
-    st.write(score1)
-    st.write(score2)
-    st.write(score3)
+    # Top 3 scores
+    scores = []
+    for i in range(max_goals):
+        for j in range(max_goals):
+            scores.append((i, j, prob_matrix[i,j]))
+
+    top_scores = sorted(scores, key=lambda x: x[2], reverse=True)[:3]
+
+    st.subheader("🎯 Top 3 Scores Probables")
+
+    for score in top_scores:
+        st.write(f"{score[0]} - {score[1]}  ({round(score[2]*100,2)} %)")
+
+else:
+    st.warning("Choisissez deux équipes différentes")
