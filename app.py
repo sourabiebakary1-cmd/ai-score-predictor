@@ -44,7 +44,28 @@ else:
         for i in range(6):
             for j in range(6):
                 prob = poisson.pmf(i, expected_home_goals) * poisson.pmf(j, expected_away_goals)
-                scores.append((i, j, prob))
+                scores.append((i, j, prob)) 
+               # Calcul 1X2
+        home_win = 0
+        draw = 0
+        away_win = 0
+
+        for i in range(6):
+            for j in range(6):
+                prob = poisson.pmf(i, expected_home_goals) * poisson.pmf(j, expected_away_goals)
+                
+                if i > j:
+                    home_win += prob
+                elif i == j:
+                    draw += prob
+                else:
+                    away_win += prob
+
+        st.subheader("📊 Probabilités 1X2")
+
+        st.write(f"Victoire {home_team} : {round(home_win*100,2)}%")
+        st.write(f"Match nul : {round(draw*100,2)}%")
+        st.write(f"Victoire {away_team} : {round(away_win*100,2)}%") 
 
         scores = sorted(scores, key=lambda x: x[2], reverse=True)[:3]
 
