@@ -33,7 +33,8 @@ if home_team != away_team:
 
     max_goals = 6
     prob_matrix = np.zeros((max_goals, max_goals))
-
+lambda_home = 1.5
+lambda_away = 1.2
     for i in range(max_goals):
         for j in range(max_goals):
             prob_matrix[i, j] = poisson.pmf(i, lambda_home) * poisson.pmf(j, lambda_away)
