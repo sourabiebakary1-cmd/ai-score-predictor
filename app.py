@@ -17,10 +17,14 @@ away_team = st.selectbox("Equipe Extérieure", teams)
 
 if home_team != away_team:
 
-    lambda_home = 1.5
-    lambda_away = 1.2
-    max_goals = 6
+    # 📊 Calcul automatique des lambdas
+    home_matches = data[data["HomeTeam"] == home_team]
+    away_matches = data[data["AwayTeam"] == away_team]
 
+    lambda_home = home_matches["FTHG"].mean()
+    lambda_away = away_matches["FTAG"].mean()
+
+    max_goals = 6
     prob_matrix = np.zeros((max_goals, max_goals))
 
     for i in range(max_goals):
@@ -39,12 +43,6 @@ if home_team != away_team:
     btts_yes = np.sum(prob_matrix[1:, 1:])
     btts_no = 1 - btts_yes
 
-    # 🎯 Score exact le plus probable
-    max_index = np.unravel_index(np.argmax(prob_matrix), prob_matrix.shape)
-    best_home_goals = max_index[0]
-    best_away_goals = max_index[1]
-    best_score_prob = prob_matrix[max_index]
-
     markets = {
         "Victoire Domicile": home_win,
         "Match Nul": draw,
@@ -56,6 +54,11 @@ if home_team != away_team:
     }
 
     best_market = max(markets, key=markets.get)
+    best_probability = markets[best_market]
+
+    # 🎯 Top 3 scores exacts
+    flat_probs = prob_matrix.flatten()
+    top_indices = flat_probs.argsort()[-3:][::-1]
 
     st.subheader("📊 Probabilités")
 
@@ -63,11 +66,25 @@ if home_team != away_team:
     st.write(f"🤝 Match nul : {round(draw*100,2)} %")
     st.write(f"✈️ Victoire {away_team} : {round(away_win*100,2)} %")
 
-    st.subheader("🎯 Score exact le plus probable")
-    st.info(f"{home_team} {best_home_goals} - {best_away_goals} {away_team} ({round(best_score_prob*100,2)}%)")
+    st.subheader("🎯 Top 3 Scores Exact")
+
+    for idx in top_indices:
+        i = idx // max_goals
+        j = idx % max_goals
+        prob = flat_probs[idx]
+        st.write(f"{home_team} {i} - {j} {away_team} ({round(prob*100,2)}%)")
+
+    # 🔥 Badge confiance
+    if best_probability > 0.55:
+        confidence = "🟢 Forte Confiance"
+    elif best_probability > 0.40:
+        confidence = "🟡 Confiance Moyenne"
+    else:
+        confidence = "🔴 Faible Confiance"
 
     st.subheader("🔥 Meilleur choix")
     st.success(f"{best_market}")
+    st.write(confidence)
 
 else:
     st.warning("Choisissez deux équipes différentes")
