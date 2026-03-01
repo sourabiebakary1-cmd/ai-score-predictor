@@ -9,8 +9,7 @@ st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 
 # Charger les données
 data = pd.read_csv("matches.csv")
-st.write(data.columns)
-st.stop()
+
 teams = sorted(list(set(data["HomeTeam"])))
 
 home_team = st.selectbox("Equipe Domicile", teams)
@@ -22,8 +21,8 @@ if home_team != away_team:
     home_matches = data[data["HomeTeam"] == home_team]
     away_matches = data[data["AwayTeam"] == away_team]
 
-    lambda_home = home_matches["FTHG"].mean()
-    lambda_away = away_matches["FTAG"].mean()
+    lambda_home = home_matches["omeGoals"].mean()
+lambda_away = away_matches["AwayGoals"].mean()
 
     max_goals = 6
     prob_matrix = np.zeros((max_goals, max_goals))
