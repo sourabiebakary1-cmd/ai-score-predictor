@@ -9,7 +9,8 @@ st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 
 # Charger les données
 data = pd.read_csv("matches.csv")
-
+st.write(data.columns)
+st.stop()
 teams = sorted(list(set(data["HomeTeam"])))
 
 home_team = st.selectbox("Equipe Domicile", teams)
