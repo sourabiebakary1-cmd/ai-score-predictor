@@ -2,7 +2,21 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from scipy.stats import poisson
-
+st.markdown("""
+    <style>
+    body {
+        background-color: #0e0e0e;
+        color: white;
+    }
+    .stApp {
+        background-color: #0e0e0e;
+    }
+    h1, h2, h3 {
+        color: #ff2b2b;
+        text-align: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO 🔥")
 
 # Charger les données
@@ -14,17 +28,6 @@ home_team = st.selectbox("Equipe Domicile", teams)
 away_team = st.selectbox("Equipe Extérieur", teams)
 
 if home_team != away_team:
-
-    # Moyennes buts
-    home_avg_scored = data[data["HomeTeam"] == home_team]["HomeGoals"].mean()
-    home_avg_conceded = data[data["HomeTeam"] == home_team]["AwayGoals"].mean()
-
-    away_avg_scored = data[data["AwayTeam"] == away_team]["AwayGoals"].mean()
-    away_avg_conceded = data[data["AwayTeam"] == away_team]["HomeGoals"].mean()
-
-    # Attaque attendue
-    lambda_home = (home_avg_scored + away_avg_conceded) / 2
-    lambda_away = (away_avg_scored + home_avg_conceded) / 2
 
     st.subheader("📊 Probabilités du match")
 
@@ -55,6 +58,25 @@ if home_team != away_team:
 
     for score in top_scores:
         st.write(f"{score[0]} - {score[1]}  ({round(score[2]*100,2)} %)")
+    st.write(f"🔥 BTTS Oui : {round(btts_yes*100,2)}%")
+    st.write(f"❌ BTTS Non : {round(btts_no*100,2)}%")
 
+    # ===== PARI RECOMMANDÉ =====
+
+    st.subheader("💎 PARI RECOMMANDÉ")
+
+    markets = {
+        "Victoire Domicile": home_win,
+        "Match Nul": draw,
+        "Victoire Extérieur": away_win,
+        "Over 2.5": over_25,
+        "Under 2.5": under_25,
+        "BTTS Oui": btts_yes,
+        "BTTS Non": btts_no
+    }
+
+    best_market = max(markets, key=markets.get)
+
+    st.success(f"🔥 Meilleur choix : {best_market}")
 else:
     st.warning("Choisissez deux équipes différentes")
