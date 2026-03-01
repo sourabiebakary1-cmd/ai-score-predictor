@@ -56,7 +56,14 @@ if home_team != away_team:
     st.write(f"🏠 Victoire {home_team} : {round(home_win*100,2)} %")
     st.write(f"🤝 Match nul : {round(draw*100,2)} %")
     st.write(f"✈️ Victoire {away_team} : {round(away_win*100,2)} %")
+# Score exact le plus probable
+max_index = np.unravel_index(np.argmax(prob_matrix), prob_matrix.shape)
+best_home_goals = max_index[0]
+best_away_goals = max_index[1]
+best_score_prob = prob_matrix[max_index]
 
+st.subheader("🎯 Score exact le plus probable")
+st.info(f"{home_team} {best_home_goals} - {best_away_goals} {away_team} ({round(best_score_prob*100,2)}%)")
     st.subheader("🔥 Meilleur choix")
     st.success(f"{best_market}")
 
