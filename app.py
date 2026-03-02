@@ -6,9 +6,14 @@ from scipy.stats import poisson
 st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
+mode = st.selectbox("Choisir le mode", ["Championnat Réel", "FIFA 5x5"])
 
+if mode == "Championnat Réel":
+    data = pd.read_csv("matches.csv")
+else:
+    data = pd.read_csv("matches_fifa.csv")
 # Charger les données
-data = pd.read_csv("matches.csv")
+
 
 teams = sorted(list(set(data["HomeTeam"])))
 
