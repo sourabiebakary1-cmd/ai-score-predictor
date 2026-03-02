@@ -81,7 +81,8 @@ if home_team != away_team:
 
 home_win_prob = prob
 draw_prob = 0.2
-away_win_prob = 1 - home_win_prob - home_win_prob - draw_prob  best_probability = max(home_win_prob, draw_prob, away_win_prob)  
+away_win_prob = 1 - home_win_prob - draw_prob
+  best_probability = max(home_win_prob, draw_prob, away_win_prob)  
 best_probability = max(home_win_prob, draw_prob, away_win_prob)
 
 if best_probability > 55:
