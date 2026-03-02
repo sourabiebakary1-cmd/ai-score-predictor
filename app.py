@@ -73,17 +73,12 @@ if home_team != away_team:
     flat_probs = prob_matrix.flatten()
     top_indices = flat_probs.argsort()[-3:][::-1]
 
-    for idx in top_indices:
-        i = idx // max_goals
-        j = idx % max_goals
-        prob = flat_probs[idx]
-        st.write(f"{home_team} {i} - {j} {away_team} ({round(prob*100,2)}%)")
+    # On prend la probabilité la plus élevée
+best_probability = max(flat_probs)
 
-home_win_prob = prob
+home_win_prob = best_probability
 draw_prob = 0.2
 away_win_prob = 1 - home_win_prob - draw_prob
-  best_probability = max(home_win_prob, draw_prob, away_win_prob)  
-best_probability = max(home_win_prob, draw_prob, away_win_prob)
 
 if best_probability > 55:
     confidence = "🟢 Forte Confiance"
