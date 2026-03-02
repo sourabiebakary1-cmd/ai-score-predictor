@@ -79,17 +79,19 @@ if home_team != away_team:
         prob = flat_probs[idx]
         st.write(f"{home_team} {i} - {j} {away_team} ({round(prob*100,2)}%)")
 
-    # 🔥 Badge confiance
-    if best_probability > 0.55:
-        confidence = "🟢 Forte Confiance"
-    elif best_probability > 0.40:
-        confidence = "🟡 Confiance Moyenne"
-    else:
-        confidence = "🔴 Faible Confiance"
+    
+best_probability = max(home_win_prob, draw_prob, away_win_prob)
 
-    st.subheader("🔥 Meilleur choix")
-    st.success(f"{best_market}")
-    st.write(confidence)
+if best_probability > 55:
+    confidence = "🟢 Forte Confiance"
+elif best_probability > 40:
+    confidence = "🟡 Confiance Moyenne"
+else:
+    confidence = "🔴 Faible Confiance"
+
+st.subheader("🔥 Meilleur choix")
+st.success(f"{best_market}")
+st.write(confidence)
 
 else:
     st.warning("Choisissez deux équipes différentes")
