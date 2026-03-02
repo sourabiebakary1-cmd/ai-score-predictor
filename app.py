@@ -93,5 +93,4 @@ st.subheader("🔥 Meilleur choix")
 st.success(f"{best_market}")
 st.write(confidence)
 
-else:
     st.warning("Choisissez deux équipes différentes")
