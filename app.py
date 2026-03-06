@@ -109,12 +109,13 @@ home_win_prob = home_win
 draw_prob = 0.2
 away_win_prob = 1 - home_win_prob - draw_prob
 
-if best_probability > 55:
+if best_probability > 0.55:
     confidence = "🟢 Forte Confiance"
-elif best_probability > 40:
+elif best_probability > 0.40:
     confidence = "🟡 Confiance Moyenne"
 else:
     confidence = "🔴 Faible Confiance"
+    
 
 st.subheader("🔥 Meilleur choix")
 st.success(f"{best_market}")
