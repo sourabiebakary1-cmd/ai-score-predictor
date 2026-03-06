@@ -89,7 +89,7 @@ if home_team != away_team:
 
     best_market = max(markets, key=markets.get)
     best_probability = markets[best_market]
-
+best_probability = float(best_probability)
     st.subheader("📊 Probabilités")
 
     st.write(f"🏠 Victoire {home_team} : {round(home_win*100,2)} %")
@@ -103,6 +103,7 @@ if home_team != away_team:
     top_indices = flat_probs.argsort()[-3:][::-1]
 
     # Confiance du modèle
+st.subheader("🔥 Meilleur choix")
 if best_probability > 0.55:
     confidence = "🟢 Forte Confiance"
 elif best_probability > 0.40:
