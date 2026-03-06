@@ -15,8 +15,12 @@ headers = {
     "x-apisports-key": API_KEY
 }
 
+from datetime import date
+
+today = date.today()
+
 params = {
-    "date": "2024-03-06"
+    "date": today
 }
 
 response = requests.get(url, headers=headers, params=params)
