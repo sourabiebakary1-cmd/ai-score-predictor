@@ -21,10 +21,10 @@ mode = st.selectbox("Choisir le mode", ["Championnat Réel", "FIFA 5x5"])
 
 fixtures = api_data["response"]
 data = pd.DataFrame({
-    "HomeTeam": ["Arsenal", "Chelsea", "Barcelona", "Real Madrid"],
-    "AwayTeam": ["Liverpool", "Manchester City", "Atletico Madrid", "Valencia"],
-    "HomeGoals": [2,1,3,2],
-    "AwayGoals": [1,2,1,1]
+"HomeTeam": ["Arsenal","Chelsea","Barcelona","Real Madrid","Liverpool","Manchester City"],
+"AwayTeam": ["Chelsea","Arsenal","Real Madrid","Barcelona","Manchester City","Liverpool"],
+"HomeGoals": [2,1,2,3,2,3],
+"AwayGoals": [1,2,1,1,2,1]
 })
 home_teams = []
 away_teams = []
