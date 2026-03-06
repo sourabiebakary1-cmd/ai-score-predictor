@@ -19,9 +19,12 @@ from datetime import date
 
 today = date.today()
 
+from datetime import datetime
+
+today = datetime.today().strftime("%Y-%m-%d")
+
 params = {
-    "date": today,
-    "season": 2024
+    "date": today
 }
 
 response = requests.get(url, headers=headers, params=params)
