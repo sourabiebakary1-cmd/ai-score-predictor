@@ -41,7 +41,7 @@ for match in fixtures:
 
 
 # Charger les données
-teams = ["Arsenal", "Chelsea", "Barcelona", "Real Madrid", "Liverpool", "Manchester City"]
+teams = list(set(home_teams + away_teams))
 
 
 
