@@ -102,20 +102,13 @@ if home_team != away_team:
     flat_probs = prob_matrix.flatten()
     top_indices = flat_probs.argsort()[-3:][::-1]
 
-    # On prend la probabilité la plus élevée
-
-
-
-
+    # Confiance du modèle
 if best_probability > 0.55:
     confidence = "🟢 Forte Confiance"
 elif best_probability > 0.40:
     confidence = "🟡 Confiance Moyenne"
 else:
     confidence = "🔴 Faible Confiance"
-    
-
-st.subheader("🔥 Meilleur choix")
 st.success(f"{best_market}")
 st.write(confidence)
 
