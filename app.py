@@ -112,4 +112,19 @@ else:
     confidence = "🔴 Faible Confiance"
 st.success(f"{best_market}")
 st.write(confidence)
+import math
 
+def poisson_prediction(home_goals, away_goals):
+    max_goals = 5
+
+    print("Probabilité des scores :")
+
+    for home in range(max_goals + 1):
+        for away in range(max_goals + 1):
+            prob_home = (math.exp(-home_goals) * home_goals**home) / math.factorial(home)
+            prob_away = (math.exp(-away_goals) * away_goals**away) / math.factorial(away)
+
+            probability = prob_home * prob_away
+
+            print(f"{home} - {away} : {round(probability*100,2)}%")
+poisson_prediction(1.5, 1.2)
