@@ -20,7 +20,8 @@ from datetime import date
 today = date.today()
 
 params = {
-    "date": today
+    "date": today,
+    "season": 2024
 }
 
 response = requests.get(url, headers=headers, params=params)
