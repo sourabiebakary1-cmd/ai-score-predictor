@@ -25,7 +25,7 @@ data = pd.DataFrame({
 "AwayTeam": ["Chelsea","Arsenal","Real Madrid","Barcelona","Manchester City","Liverpool"],
 "HomeGoals": [2,1,2,3,2,3],
 "AwayGoals": [1,2,1,1,2,1]
-
+})
 home_teams = []
 away_teams = []
 
