@@ -12,7 +12,7 @@ headers = {
     "x-apisports-key": API_KEY
 }
 
-response = requests.get(url, headers=headers)
+response = requests.get(url, headers=headers, params=params)
 api_data = response.json()
 st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
