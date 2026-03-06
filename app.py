@@ -8,7 +8,7 @@ st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
-
+API_KEY = "64907d87f835d9696c8d51b314693e51"
 url = "https://v3.football.api-sports.io/fixtures"
 
 headers = {
