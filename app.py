@@ -104,7 +104,7 @@ if home_team != away_team:
 
     # On prend la probabilité la plus élevée
 
-
+best_probability = max(flat_probs)
 home_win_prob = home_win
 draw_prob = 0.2
 away_win_prob = 1 - home_win_prob - draw_prob
