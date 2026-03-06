@@ -32,7 +32,7 @@ teams = sorted(list(set(home_teams + away_teams)))
 # Charger les données
 
 
-teams = sorted(list(set(data["HomeTeam"])))
+
 
 home_team = st.selectbox("Equipe Domicile", teams)
 away_team = st.selectbox("Equipe Extérieure", teams)
