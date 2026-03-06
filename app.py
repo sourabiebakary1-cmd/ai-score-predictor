@@ -7,7 +7,32 @@ from scipy.stats import poisson
 st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
+st.subheader("📅 Matchs du jour")
 
+url = "https://v3.football.api-sports.io/fixtures"
+
+headers = {
+    "x-apisports-key": API_KEY
+}
+
+params = {
+    "date": "2024-03-06"
+}
+
+response = requests.get(url, headers=headers, params=params)
+data = response.json()
+
+matches = []
+
+for match in data["response"]:
+    home = match["teams"]["home"]["name"]
+    away = match["teams"]["away"]["name"]
+    matches.append(f"{home} vs {away}")
+
+if matches:
+    selected_match = st.selectbox("Choisir un match", matches)
+else:
+    st.write("Aucun match trouvé")
 home_team = st.text_input("Equipe domicile")
 away_team = st.text_input("Equipe extérieur")
 
