@@ -43,8 +43,8 @@ if home_team != away_team:
     home_matches = data[data["HomeTeam"] == home_team]
 away_matches = data[data["AwayTeam"] == away_team]
 
-    lambda_home = home_matches["HomeGoals"].mean()
-    lambda_away = away_matches["AwayGoals"].mean()
+lambda_home = home_matches["HomeGoals"].mean()
+lambda_away = away_matches["AwayGoals"].mean()
 
     max_goals = 6
     prob_matrix = np.zeros((max_goals, max_goals))
