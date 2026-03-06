@@ -6,7 +6,13 @@ import requests
 
 API_KEY = "64907d87f835d9696c8d51b314693e51"
 
-url = "https://v3.football.api-sports.io/fixtures?date=2024-03-06"
+url = "https://v3.football.api-sports.io/fixtures"
+
+params = {
+    "league": 39,
+    "season": 2024,
+    "next": 10
+}
 
 headers = {
     "x-apisports-key": API_KEY
