@@ -1,130 +1,43 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from scipy.stats import poisson
 import requests
+from scipy.stats import poisson
 
-API_KEY = "64907d87f835d9696c8d51b314693e51"
-
-url = "https://v3.football.api-sports.io/fixtures"
-
-params = {
-    "league": 39,
-    "season": 2024,
-    "next": 10
-}
-
-headers = {
-    "x-apisports-key": API_KEY
-}
-
-response = requests.get(url, headers=headers, params=params)
-api_data = response.json()
 st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
-mode = st.selectbox("Choisir le mode", ["Championnat Réel", "FIFA 5x5"])
 
-fixtures = api_data["response"]
-data = pd.DataFrame({
-"HomeTeam": ["Arsenal","Chelsea","Barcelona","Real Madrid","Liverpool","Manchester City"],
-"AwayTeam": ["Chelsea","Arsenal","Real Madrid","Barcelona","Manchester City","Liverpool"],
-"HomeGoals": [2,1,2,3,2,3],
-"AwayGoals": [1,2,1,1,2,1]
-})
-home_teams = []
-away_teams = []
+home_team = st.text_input("Equipe domicile")
+away_team = st.text_input("Equipe extérieur")
 
-for match in fixtures:
-    home_teams.append(match["teams"]["home"]["name"])
-    away_teams.append(match["teams"]["away"]["name"])
+home_goals_avg = st.number_input("Moyenne buts domicile", 0.0, 5.0, 1.5)
+away_goals_avg = st.number_input("Moyenne buts extérieur", 0.0, 5.0, 1.2)
 
+if st.button("Analyser le match"):
 
-# Charger les données
-teams = list(set(home_teams + away_teams))
+    max_goals = 5
+    prob_matrix = np.zeros((max_goals+1, max_goals+1))
 
-
-
-
-home_team = st.selectbox("Equipe Domicile", teams)
-away_team = st.selectbox("Equipe Extérieure", teams)
-
-if home_team != away_team:
-
-    # Calcul automatique des lambdas
-    home_matches = data[data["HomeTeam"] == home_team]
-    away_matches = data[data["AwayTeam"] == away_team]
-
-    lambda_home = home_matches["HomeGoals"].mean()
-    lambda_away = away_matches["AwayGoals"].mean()
-
-    max_goals = 6
-    prob_matrix = np.zeros((max_goals, max_goals))
-
-    for i in range(max_goals):
-        for j in range(max_goals):
-            prob_matrix[i, j] = (
-                poisson.pmf(i, lambda_home) *
-                poisson.pmf(j, lambda_away)
-            )
+    for home_goals in range(max_goals+1):
+        for away_goals in range(max_goals+1):
+            prob_matrix[home_goals][away_goals] = poisson.pmf(home_goals, home_goals_avg) * poisson.pmf(away_goals, away_goals_avg)
 
     home_win = np.sum(np.tril(prob_matrix, -1))
     draw = np.sum(np.diag(prob_matrix))
     away_win = np.sum(np.triu(prob_matrix, 1))
 
-    over_25 = np.sum(prob_matrix[np.add.outer(range(max_goals), range(max_goals)) > 2])
-    under_25 = 1 - over_25
-    btts_yes = np.sum(prob_matrix[1:, 1:])
-    btts_no = 1 - btts_yes
+    st.subheader("📊 Probabilités")
 
-    markets = {
-        "Victoire Domicile": home_win,
-        "Match Nul": draw,
-        "Victoire Extérieur": away_win,
-        "Over 2.5": over_25,
-        "Under 2.5": under_25,
-        "BTTS Oui": btts_yes,
-        "BTTS Non": btts_no
-    }
+    st.write(f"🏠 Victoire {home_team}: {round(home_win*100,2)} %")
+    st.write(f"🤝 Match nul: {round(draw*100,2)} %")
+    st.write(f"✈️ Victoire {away_team}: {round(away_win*100,2)} %")
 
-    best_market = max(markets, key=markets.get)
-best_probability = markets[best_market]
-best_probability = float(best_probability)
-st.subheader("📊 Probabilités")
+    flat = prob_matrix.flatten()
+    index = flat.argmax()
 
-    st.write(f"🏠 Victoire {home_team} : {round(home_win*100,2)} %")
-    st.write(f"🤝 Match nul : {round(draw*100,2)} %")
-    st.write(f"✈️ Victoire {away_team} : {round(away_win*100,2)} %")
+    home_score = index // (max_goals+1)
+    away_score = index % (max_goals+1)
 
-    # 🎯 Top 3 scores exacts
-    st.subheader("🎯 Top 3 Scores Exact")
-
-    flat_probs = prob_matrix.flatten()
-    top_indices = flat_probs.argsort()[-3:][::-1]
-
-    # Confiance du modèle
-st.subheader("🔥 Meilleur choix")
-if best_probability > 0.55:
-    confidence = "🟢 Forte Confiance"
-elif best_probability > 0.40:
-    confidence = "🟡 Confiance Moyenne"
-else:
-    confidence = "🔴 Faible Confiance"
-st.success(f"{best_market}")
-st.write(confidence)
-
-
-def poisson_prediction(home_goals, away_goals):
-    max_goals = 5
-
-    print("Probabilité des scores :")
-
-    for home in range(max_goals + 1):
-        for away in range(max_goals + 1):
-            prob_home = (math.exp(-home_goals) * home_goals**home) / math.factorial(home)
-            prob_away = (math.exp(-away_goals) * away_goals**away) / math.factorial(away)
-
-            probability = prob_home * prob_away
-
-            print(f"{home} - {away} : {round(probability*100,2)}%")
-poisson_prediction(1.5, 1.2)
+    st.subheader("🎯 Score exact le plus probable")
+    st.success(f"{home_team} {home_score} - {away_score} {away_team}")
