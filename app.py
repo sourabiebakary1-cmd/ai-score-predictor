@@ -6,7 +6,7 @@ import requests
 
 API_KEY = "64907d87f835d9696c8d51b314693e51"
 
-url = "https://v3.football.api-sports.io/fixtures?league=39&season=2023"
+url = "https://v3.football.api-sports.io/fixtures?date=2024-03-06"
 
 headers = {
     "x-apisports-key": API_KEY
@@ -25,7 +25,7 @@ data = pd.DataFrame({
 "AwayTeam": ["Chelsea","Arsenal","Real Madrid","Barcelona","Manchester City","Liverpool"],
 "HomeGoals": [2,1,2,3,2,3],
 "AwayGoals": [1,2,1,1,2,1]
-})
+
 home_teams = []
 away_teams = []
 
