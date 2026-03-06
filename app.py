@@ -103,7 +103,7 @@ if home_team != away_team:
     top_indices = flat_probs.argsort()[-3:][::-1]
 
     # On prend la probabilité la plus élevée
-best_probability = max(flat_probs)
+
 
 home_win_prob = best_probability
 draw_prob = 0.2
