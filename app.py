@@ -33,7 +33,8 @@ for match in fixtures:
     home_teams.append(match["teams"]["home"]["name"])
     away_teams.append(match["teams"]["away"]["name"])
 
-teams = sorted(list(set(home_teams + away_teams)))
+:
+    teams = ["Arsenal", "Chelsea", "Barcelona", "Real Madrid", "Liverpool", "Manchester City"]
 # Charger les données
 
 
