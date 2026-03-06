@@ -88,9 +88,9 @@ if home_team != away_team:
     }
 
     best_market = max(markets, key=markets.get)
-    best_probability = markets[best_market]
+best_probability = markets[best_market]
 best_probability = float(best_probability)
-    st.subheader("📊 Probabilités")
+st.subheader("📊 Probabilités")
 
     st.write(f"🏠 Victoire {home_team} : {round(home_win*100,2)} %")
     st.write(f"🤝 Match nul : {round(draw*100,2)} %")
@@ -112,7 +112,7 @@ else:
     confidence = "🔴 Faible Confiance"
 st.success(f"{best_market}")
 st.write(confidence)
-import math
+
 
 def poisson_prediction(home_goals, away_goals):
     max_goals = 5
