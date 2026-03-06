@@ -2,16 +2,33 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from scipy.stats import poisson
+import requests
 
+API_KEY = "64907d87f835d9696c8d51b314693e51"
+
+url = "https://v3.football.api-sports.io/fixtures?league=39&season=2023"
+
+headers = {
+    "x-apisports-key": API_KEY
+}
+
+response = requests.get(url, headers=headers)
+api_data = response.json()
 st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 mode = st.selectbox("Choisir le mode", ["Championnat Réel", "FIFA 5x5"])
 
-if mode == "Championnat Réel":
-    data = pd.read_csv("matches.csv")
-else:
-    data = pd.read_csv("matches_fifa.csv")
+fixtures = api_data["response"]
+
+home_teams = []
+away_teams = []
+
+for match in fixtures:
+    home_teams.append(match["teams"]["home"]["name"])
+    away_teams.append(match["teams"]["away"]["name"])
+
+teams = sorted(list(set(home_teams + away_teams)))
 # Charger les données
 
 
