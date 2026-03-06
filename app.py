@@ -107,4 +107,4 @@ else:
 st.subheader("🔥 Meilleur choix")
 st.success(f"{best_market}")
 st.write(confidence)
-.
+
