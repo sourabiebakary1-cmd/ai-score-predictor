@@ -35,12 +35,13 @@ data = response.json()
 matches = []
 
 for match in data.get("response", []):
-    home = match["teams"]["home"]["name"]
-    away = match["teams"]["away"]["name"]
+    home = match.get("teams", {}).get("home", {}).get("name", "Home")
+away = match.get("teams", {}).get("away", {}).get("name", "Away")
     matches.append(f"{home} vs {away}")
 
 if matches:
     selected_match = st.selectbox("Choisir un match", matches)
+    st.write("Match sélectionné :", selected_match)
 else:
     st.write("Aucun match trouvé")
 home_team = st.text_input("Equipe domicile")
