@@ -36,7 +36,7 @@ matches = []
 
 for match in data.get("response", []):
     home = match.get("teams", {}).get("home", {}).get("name", "Home")
-away = match.get("teams", {}).get("away", {}).get("name", "Away")
+    away = match.get("teams", {}).get("away", {}).get("name", "Away")
     matches.append(f"{home} vs {away}")
 
 if matches:
