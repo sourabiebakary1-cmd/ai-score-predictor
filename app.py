@@ -29,7 +29,7 @@ params = {
 
 response = requests.get(url, headers=headers, params=params)
 data = response.json()
-data = response.json()
+
 st.write(data)
 matches = []
 
