@@ -8,12 +8,13 @@ st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
-API_KEY = "64907d87f835d9696c8d51b314693e51"
-url = "https://v3.football.api-sports.io/fixtures"
-
+API_KEY = "cc99563a7dmsh7b90e353380edb4p1136f530a296e8c"
+url = "https://free-football-api-data.p.rapidapi.com/football-events-by-date"
 headers = {
-    "x-apisports-key": API_KEY
+    "X-RapidAPI-Key": API_KEY,
+    "X-RapidAPI-Host": "free-football-api-data.p.rapidapi.com"
 }
+
 
 from datetime import date
 
@@ -30,10 +31,10 @@ params = {
 response = requests.get(url, headers=headers, params=params)
 data = response.json()
 
-st.write(data)
+
 matches = []
 
-for match in data["response"]:
+for match in data.get("response", []):
     home = match["teams"]["home"]["name"]
     away = match["teams"]["away"]["name"]
     matches.append(f"{home} vs {away}")
