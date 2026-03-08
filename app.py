@@ -10,7 +10,7 @@ st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
 
 
-API_KEY = "TA_CLE_API"
+API_KEY = "a1b2c3d4e5f6g7h8"
 
 url = "https://v3.football.api-sports.io/fixtures"
 
@@ -19,12 +19,18 @@ headers = {
 }
 
 from datetime import datetime
+import requests
+
 today = datetime.today().strftime("%Y-%m-%d")
 
 params = {
     "date": today,
     "timezone": "Europe/Paris"
 }
+
+response = requests.get(url, headers=headers, params=params)
+
+data = response.json()
 
 st.write(data)
 
