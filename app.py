@@ -68,4 +68,4 @@ if st.button("Analyser le match"):
 
     for home_goals in range(max_goals+1):
         for away_goals in range(max_goals+1):
-            prob_matrix[home_goals][away_goals] = poisson.pmf(home_goals, home_goals_avg) * poisson.pmf(away_goals, away_goals
+            prob_matrix[home_goals][away_goals] = poisson.pmf(home_goals, home_goals_avg) * poisson.pmf(away_goals, away_goals_avg)
