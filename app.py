@@ -64,8 +64,14 @@ away_goals_avg = st.number_input("Moyenne buts extérieur", 0.0, 5.0, 1.2)
 if st.button("Analyser le match"):
 
     max_goals = 5
-    prob_matrix = np.zeros((max_goals+1, max_goals+1))
+prob_matrix = np.zeros((max_goals+1, max_goals+1))
 
-    for home_goals in range(max_goals+1):
-        for away_goals in range(max_goals+1):
-            prob_matrix[home_goals][away_goals] = poisson.pmf(home_goals, home_goals_avg) * poisson.pmf(away_goals, away_goals_avg)
+for home_goals in range(max_goals+1):
+    for away_goals in range(max_goals+1):
+        prob = poisson.pmf(home_goals, home_goals_avg) * poisson.pmf(away_goals, away_goals_avg)
+        prob_matrix[home_goals][away_goals] = prob
+
+pred_home = np.argmax(prob_matrix) // (max_goals+1)
+pred_away = np.argmax(prob_matrix) % (max_goals+1)
+
+st.success(f"Score prédit : {pred_home} - {pred_away}")
