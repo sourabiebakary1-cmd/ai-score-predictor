@@ -71,4 +71,4 @@ if st.button("🤖 Lancer analyse IA"):
     max_goals = 6
     matrix = np.zeros((max_goals+1, max_goals+1))
 
-    for i in range(max_goals+
+    for i in range(max_goals + 1):
