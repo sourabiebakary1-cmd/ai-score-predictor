@@ -10,18 +10,15 @@ st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
 
 
-API_KEY = "cc99563a7dmsh7b90e353380edb4p1136f530a296e8c"
-url = "https://free-football-api-data.p.rapidapi.com/football-events-by-date"
+API_KEY = "TA_CLE_API"
+
+url = "https://v3.football.api-sports.io/fixtures"
+
 headers = {
-    "X-RapidAPI-Key": API_KEY,
-    "X-RapidAPI-Host": "free-football-api-data.p.rapidapi.com"
+    "x-apisports-key": API_KEY
 }
 
-
-
-
 from datetime import datetime
-
 today = datetime.today().strftime("%Y-%m-%d")
 
 params = {
@@ -31,12 +28,11 @@ params = {
 response = requests.get(url, headers=headers, params=params)
 data = response.json()
 
-
 matches = []
 
-for match in data.get("response", []):
-    home = match.get("teams", {}).get("home", {}).get("name", "Home")
-    away = match.get("teams", {}).get("away", {}).get("name", "Away")
+for match in data["response"]:
+    home = match["teams"]["home"]["name"]
+    away = match["teams"]["away"]["name"]
     matches.append(f"{home} vs {away}")
 
 if matches:
