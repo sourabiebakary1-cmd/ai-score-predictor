@@ -1,55 +1,52 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
 import requests
 from scipy.stats import poisson
+from datetime import datetime
 
 st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
 
-
-import requests
-from datetime import datetime
-
-API_KEY = "cc99563a7drd"
+API_KEY = "MET_TA_CLE_API_ICI"
 
 url = "https://free-football-api-data.p.rapidapi.com/football-event-statistics"
 
 headers = {
-    "x-rapidapi-key": API_KEY,
-    "x-rapidapi-host": "free-football-api-data.p.rapidapi.com"
+    "X-RapidAPI-Key": API_KEY,
+    "X-RapidAPI-Host": "free-football-api-data.p.rapidapi.com"
 }
 
 today = datetime.today().strftime("%Y-%m-%d")
 
-params = {
-    "date": today
-}
-
-response = requests.get(url, headers=headers, params=params)
-
-data = response.json()
-
-st.write(data)
-
-
-
-
+params = {"date": today}
 
 matches = []
 
-for match in data["response"]:
-    home = match["teams"]["home"]["name"]
-    away = match["teams"]["away"]["name"]
-    matches.append(f"{home} vs {away}")
+try:
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+
+    if "response" in data:
+        for match in data["response"]:
+            home = match["teams"]["home"]["name"]
+            away = match["teams"]["away"]["name"]
+            matches.append(f"{home} vs {away}")
+    else:
+        st.warning("⚠️ Impossible de charger les matchs aujourd'hui")
+
+except:
+    st.error("Erreur connexion API")
 
 if matches:
     selected_match = st.selectbox("Choisir un match", matches)
     st.write("Match sélectionné :", selected_match)
 else:
-    st.write("Aucun match trouvé")
+    st.write("Aucun match disponible")
+
+st.subheader("⚙️ Analyse IA")
+
 home_team = st.text_input("Equipe domicile")
 away_team = st.text_input("Equipe extérieur")
 
