@@ -4,10 +4,10 @@ import requests
 from scipy.stats import poisson
 from datetime import datetime
 
-st.set_page_config(page_title="Bakary Predictor PRO", layout="centered")
+st.set_page_config(page_title="Bakary Predictor Pro", layout="centered")
 
-st.title("🤖 BAKARY AI FOOTBALL PREDICTOR PRO")
-st.subheader("📅 Matchs du jour")
+st.title("⚽ BAKARY AI FOOTBALL PREDICTOR PRO")
+st.header("📅 Matchs du jour")
 
 API_KEY = "TA_CLE_RAPIDAPI"
 
@@ -45,41 +45,65 @@ except:
     st.error("Erreur API")
 
 if matches:
+
     match_names = [f"{m[0]} vs {m[1]}" for m in matches]
+
     selected = st.selectbox("Choisir un match", match_names)
 
     index = match_names.index(selected)
+
     home_team = matches[index][0]
     away_team = matches[index][1]
 
     st.write("🏠", home_team)
-    st.write("🚗", away_team)
+    st.write("✈️", away_team)
 
-st.subheader("📊 Statistiques équipes")
+    st.subheader("📊 Statistiques équipes")
 
-home_attack = st.slider("Force attaque domicile", 0.5, 3.0, 1.5)
-away_attack = st.slider("Force attaque extérieur", 0.5, 3.0, 1.2)
+    home_attack = st.slider("Force attaque domicile", 0.5, 3.0, 1.5)
+    away_attack = st.slider("Force attaque extérieur", 0.5, 3.0, 1.2)
 
-home_defense = st.slider("Défense domicile", 0.5, 3.0, 1.0)
-away_defense = st.slider("Défense extérieur", 0.5, 3.0, 1.2)
+    home_defense = st.slider("Défense domicile", 0.5, 3.0, 1.0)
+    away_defense = st.slider("Défense extérieur", 0.5, 3.0, 1.2)
 
-if st.button("🤖 Lancer analyse IA"):
+    if st.button("🚀 Lancer analyse IA"):
 
-    home_lambda = home_attack * away_defense
-    away_lambda = away_attack * home_defense
+        home_lambda = home_attack * away_defense
+        away_lambda = away_attack * home_defense
 
-    max_goals = 6
-    matrix = np.zeros((max_goals+1, max_goals+1))
+        max_goals = 6
 
-    for j in range(max_goals + 1):
-        matrix[i][j] = poisson.pmf(i, home_lambda) * poisson.pmf(j, away_lambda)
+        matrix = np.zeros((max_goals+1, max_goals+1))
 
-home_win = np.sum(np.tril(matrix, -1))
-draw = np.sum(np.diag(matrix))
-away_win = np.sum(np.triu(matrix, 1))
+        for i in range(max_goals + 1):
+            for j in range(max_goals + 1):
+                matrix[i][j] = poisson.pmf(i, home_lambda) * poisson.pmf(j, away_lambda)
 
-st.subheader("📊 Probabilités")
+        home_win = np.sum(np.tril(matrix, -1))
+        draw = np.sum(np.diag(matrix))
+        away_win = np.sum(np.triu(matrix, 1))
 
-st.write("🏠 Victoire domicile :", round(home_win * 100, 2), "%")
-st.write("🤝 Match nul :", round(draw * 100, 2), "%")
-st.write("✈️ Victoire extérieur :", round(away_win * 100, 2), "%")
+        st.subheader("📊 Probabilités")
+
+        st.write("🏠 Victoire domicile :", round(home_win * 100, 2), "%")
+        st.write("🤝 Match nul :", round(draw * 100, 2), "%")
+        st.write("✈️ Victoire extérieur :", round(away_win * 100, 2), "%")
+
+        st.subheader("🎯 Score exact le plus probable")
+
+        max_prob = 0
+        best_score = (0, 0)
+
+        for i in range(max_goals+1):
+            for j in range(max_goals+1):
+                if matrix[i][j] > max_prob:
+                    max_prob = matrix[i][j]
+                    best_score = (i, j)
+
+        st.success(f"Score probable : {best_score[0]} - {best_score[1]}")
+
+        over25 = np.sum(matrix[3:])
+        st.write("⚽ Probabilité Over 2.5 :", round(over25 * 100, 2), "%")
+
+        btts = 1 - (matrix[0].sum() + matrix[:,0].sum() - matrix[0][0])
+        st.write("🔥 BTTS (les deux marquent) :", round(btts * 100, 2), "%")
