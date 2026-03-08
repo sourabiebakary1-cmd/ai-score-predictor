@@ -8,21 +8,20 @@ st.set_page_config(page_title="Bakary Predictor Pro", layout="centered")
 
 st.title("⚽ BAKARY AI FOOTBALL PREDICTOR PRO")
 st.header("📅 Matchs du jour")
-API_KEY = "cc99563a7dmsh7b90e353380edb4p113eb4jsnf530a296e8c"
 
+API_KEY = "TA_CLE_RAPIDAPI"
 
-url = "https://free-football-api-data.p.rapidapi.com/football-matches-by-date"
+url = "https://free-api-live-football-data.p.rapidapi.com/football-fixtures"
 
 headers = {
     "X-RapidAPI-Key": API_KEY,
-    "X-RapidAPI-Host": "free-football-api-data.p.rapidapi.com"
+    "X-RapidAPI-Host": "free-api-live-football-data.p.rapidapi.com"
 }
 
 today = datetime.today().strftime("%Y-%m-%d")
 
 params = {
-    "date": today,
-    "timezone": "Europe/Paris"
+    "date": today
 }
 
 matches = []
@@ -33,10 +32,10 @@ try:
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
 
-    if "data" in data:
-        for match in data["data"]:
-            home = match["home_team"]["name"]
-            away = match["away_team"]["name"]
+    if "response" in data:
+        for match in data["response"]:
+            home = match["teams"]["home"]["name"]
+            away = match["teams"]["away"]["name"]
             matches.append((home, away))
     else:
         st.warning("Aucun match trouvé")
@@ -66,18 +65,17 @@ if matches:
     home_defense = st.slider("Défense domicile", 0.5, 3.0, 1.0)
     away_defense = st.slider("Défense extérieur", 0.5, 3.0, 1.2)
 
-    if st.button("🚀 Lancer analyse IA"):
+    if st.button("🤖 Lancer analyse IA"):
 
         home_lambda = home_attack * away_defense
         away_lambda = away_attack * home_defense
 
         max_goals = 6
 
-        matrix = np.zeros((max_goals+1, max_goals+1))
+        home_goals = [poisson.pmf(i, home_lambda) for i in range(max_goals)]
+        away_goals = [poisson.pmf(i, away_lambda) for i in range(max_goals)]
 
-        for i in range(max_goals + 1):
-            for j in range(max_goals + 1):
-                matrix[i][j] = poisson.pmf(i, home_lambda) * poisson.pmf(j, away_lambda)
+        matrix = np.outer(home_goals, away_goals)
 
         home_win = np.sum(np.tril(matrix, -1))
         draw = np.sum(np.diag(matrix))
@@ -89,21 +87,8 @@ if matches:
         st.write("🤝 Match nul :", round(draw * 100, 2), "%")
         st.write("✈️ Victoire extérieur :", round(away_win * 100, 2), "%")
 
-        st.subheader("🎯 Score exact le plus probable")
+        st.subheader("🔥 Score le plus probable")
 
-        max_prob = 0
-        best_score = (0, 0)
+        best_score = np.unravel_index(matrix.argmax(), matrix.shape)
 
-        for i in range(max_goals+1):
-            for j in range(max_goals+1):
-                if matrix[i][j] > max_prob:
-                    max_prob = matrix[i][j]
-                    best_score = (i, j)
-
-        st.success(f"Score probable : {best_score[0]} - {best_score[1]}")
-
-        over25 = np.sum(matrix[3:])
-        st.write("⚽ Probabilité Over 2.5 :", round(over25 * 100, 2), "%")
-
-        btts = 1 - (matrix[0].sum() + matrix[:,0].sum() - matrix[0][0])
-        st.write("🔥 BTTS (les deux marquent) :", round(btts * 100, 2), "%")
+        st.success(f"{home_team} {best_score[0]} - {best_score[1]} {away_team}")
