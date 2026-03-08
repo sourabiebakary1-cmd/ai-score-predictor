@@ -11,7 +11,7 @@ st.subheader("📅 Matchs du jour")
 
 API_KEY = "MET_TA_CLE_API_ICI"
 
-url = "https://free-football-api-data.p.rapidapi.com/football-event-statistics"
+url = "https://free-football-api-data.p.rapidapi.com/football-matches-by-date"
 
 headers = {
     "X-RapidAPI-Key": API_KEY,
@@ -20,7 +20,10 @@ headers = {
 
 today = datetime.today().strftime("%Y-%m-%d")
 
-params = {"date": today}
+params = {
+    "date": today,
+    "timezone": "Europe/Paris"
+}
 
 matches = []
 
