@@ -10,12 +10,11 @@ st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
 
 
-API_KEY = "a1b2c3d4e5f6g7h8"
-
-url = "https://v3.football.api-sports.io/fixtures"
+API_KEY = "cc99563a7....."
 
 headers = {
-    "x-apisports-key": API_KEY
+    "x-rapidapi-key": API_KEY,
+    "x-rapidapi-host": "free-football-api-data.p.rapidapi.com"
 }
 
 from datetime import datetime
