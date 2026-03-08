@@ -22,11 +22,18 @@ from datetime import datetime
 today = datetime.today().strftime("%Y-%m-%d")
 
 params = {
-    "date": today
+    "date": today,
+    "timezone": "Europe/Paris"
 }
+
+st.write(data)
 
 response = requests.get(url, headers=headers, params=params)
 data = response.json()
+
+st.write(data)
+
+
 
 matches = []
 
