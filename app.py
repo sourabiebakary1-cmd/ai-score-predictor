@@ -71,4 +71,15 @@ if st.button("🤖 Lancer analyse IA"):
     max_goals = 6
     matrix = np.zeros((max_goals+1, max_goals+1))
 
-    for i in range(max_goals + 1):
+    for j in range(max_goals + 1):
+        matrix[i][j] = poisson.pmf(i, home_lambda) * poisson.pmf(j, away_lambda)
+
+home_win = np.sum(np.tril(matrix, -1))
+draw = np.sum(np.diag(matrix))
+away_win = np.sum(np.triu(matrix, 1))
+
+st.subheader("📊 Probabilités")
+
+st.write("🏠 Victoire domicile :", round(home_win * 100, 2), "%")
+st.write("🤝 Match nul :", round(draw * 100, 2), "%")
+st.write("✈️ Victoire extérieur :", round(away_win * 100, 2), "%")
