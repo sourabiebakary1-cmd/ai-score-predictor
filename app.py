@@ -31,13 +31,13 @@ try:
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
 
-    if "response" in data:
-        for match in data["response"]:
-            home = match["teams"]["home"]["name"]
-            away = match["teams"]["away"]["name"]
-            matches.append(f"{home} vs {away}")
-    else:
-        st.warning("⚠️ Impossible de charger les matchs aujourd'hui")
+    if "data" in data:
+    for match in data["data"]:
+        home = match["home_team"]["name"]
+        away = match["away_team"]["name"]
+        matches.append(f"{home} vs {away}")
+else:
+    st.warning("⚠️ Aucun match trouvé aujourd'hui")
 
 except:
     st.error("Erreur connexion API")
