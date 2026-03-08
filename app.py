@@ -10,21 +10,22 @@ st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
 
 
-API_KEY = "cc99563a7....."
+import requests
+from datetime import datetime
+
+API_KEY = "cc99563a7drd"
+
+url = "https://free-football-api-data.p.rapidapi.com/football-event-statistics"
 
 headers = {
     "x-rapidapi-key": API_KEY,
     "x-rapidapi-host": "free-football-api-data.p.rapidapi.com"
 }
 
-from datetime import datetime
-import requests
-
 today = datetime.today().strftime("%Y-%m-%d")
 
 params = {
-    "date": today,
-    "timezone": "Europe/Paris"
+    "date": today
 }
 
 response = requests.get(url, headers=headers, params=params)
