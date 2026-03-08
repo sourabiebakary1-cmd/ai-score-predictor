@@ -9,7 +9,7 @@ st.set_page_config(page_title="Bakary Predictor", layout="centered")
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
 
-API_KEY = "TA_CLE_RAPIDAPI"
+API_KEY = "cc99563a7dmsh7b90e353380edb4p113eb4jsnf5"
 
 url = "https://free-football-api-data.p.rapidapi.com/football-matches-by-date"
 
