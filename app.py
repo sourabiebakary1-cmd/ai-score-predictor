@@ -26,7 +26,8 @@ params = {
 }
 
 matches = []
-
+st.write("Recherche des matchs du jour...")
+st.success(f"{len(matches)} matchs trouvés aujourd'hui")
 try:
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
