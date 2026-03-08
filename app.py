@@ -8,6 +8,8 @@ st.set_page_config(page_title="Bakary Predictor", layout="centered")
 
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
+
+
 API_KEY = "cc99563a7dmsh7b90e353380edb4p1136f530a296e8c"
 url = "https://free-football-api-data.p.rapidapi.com/football-events-by-date"
 headers = {
@@ -16,9 +18,7 @@ headers = {
 }
 
 
-from datetime import date
 
-today = date.today()
 
 from datetime import datetime
 
