@@ -28,10 +28,7 @@ params = {
 
 st.write(data)
 
-response = requests.get(url, headers=headers, params=params)
-data = response.json()
 
-st.write(data)
 
 
 
