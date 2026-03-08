@@ -9,7 +9,7 @@ st.set_page_config(page_title="Bakary Predictor", layout="centered")
 st.title("🔥 BAKARY PREDICTOR ULTRA PRO")
 st.subheader("📅 Matchs du jour")
 
-API_KEY = "cc99563a7dmsh7b90e353380edb4p113eb4jsn"
+API_KEY = "TA_CLE_RAPIDAPI"
 
 url = "https://free-football-api-data.p.rapidapi.com/football-matches-by-date"
 
@@ -26,26 +26,30 @@ params = {
 }
 
 matches = []
-st.write("Recherche des matchs du jour...")
-st.success(f"{len(matches)} matchs trouvés aujourd'hui")
+
+st.write("🔎 Recherche des matchs du jour...")
+
 try:
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
 
     if "data" in data:
-    for match in data["data"]:
-        home = match["home_team"]["name"]
-        away = match["away_team"]["name"]
-        matches.append(f"{home} vs {away}")
-else:
-    st.warning("⚠️ Aucun match trouvé aujourd'hui")
+        for match in data["data"]:
+            home = match["home_team"]["name"]
+            away = match["away_team"]["name"]
+            matches.append(f"{home} vs {away}")
+
+    else:
+        st.warning("⚠️ Aucun match trouvé aujourd'hui")
 
 except:
-    st.error("Erreur connexion API")
+    st.error("❌ Erreur connexion API")
+
+st.success(f"{len(matches)} matchs trouvés aujourd'hui")
 
 if matches:
     selected_match = st.selectbox("Choisir un match", matches)
-    st.write("Match sélectionné :", selected_match)
+    st.success(f"Match sélectionné : {selected_match}")
 else:
     st.write("Aucun match disponible")
 
@@ -64,23 +68,4 @@ if st.button("Analyser le match"):
 
     for home_goals in range(max_goals+1):
         for away_goals in range(max_goals+1):
-            prob_matrix[home_goals][away_goals] = poisson.pmf(home_goals, home_goals_avg) * poisson.pmf(away_goals, away_goals_avg)
-
-    home_win = np.sum(np.tril(prob_matrix, -1))
-    draw = np.sum(np.diag(prob_matrix))
-    away_win = np.sum(np.triu(prob_matrix, 1))
-
-    st.subheader("📊 Probabilités")
-
-    st.write(f"🏠 Victoire {home_team}: {round(home_win*100,2)} %")
-    st.write(f"🤝 Match nul: {round(draw*100,2)} %")
-    st.write(f"✈️ Victoire {away_team}: {round(away_win*100,2)} %")
-
-    flat = prob_matrix.flatten()
-    index = flat.argmax()
-
-    home_score = index // (max_goals+1)
-    away_score = index % (max_goals+1)
-
-    st.subheader("🎯 Score exact le plus probable")
-    st.success(f"{home_team} {home_score} - {away_score} {away_team}")
+            prob_matrix[home_goals][away_goals] = poisson.pmf(home_goals, home_goals_avg) * poisson.pmf(away_goals, away_goals
