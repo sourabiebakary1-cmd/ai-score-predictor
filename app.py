@@ -8,15 +8,14 @@ st.set_page_config(page_title="Bakary Predictor Pro", layout="centered")
 
 st.title("⚽ BAKARY AI FOOTBALL PREDICTOR PRO")
 st.header("📅 Matchs du jour")
+matches = [
+("Real Madrid", "Barcelona"),
+("Manchester City", "Liverpool"),
+("PSG", "Marseille"),
+("Bayern Munich", "Dortmund")
+]
 
-API_KEY = "cc99563a7dmsh7b90e353380edb4p113eb4jsnf530a296e8c"
 
-url = "https://free-api-live-football-data.p.rapidapi.com/football-fixtures"
-
-headers = {
-    "X-RapidAPI-Key": API_KEY,
-    "X-RapidAPI-Host": "free-api-live-football-data.p.rapidapi.com"
-}
 
 today = datetime.today().strftime("%Y-%m-%d")
 
