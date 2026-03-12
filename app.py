@@ -112,4 +112,27 @@ if matches:
         # --- Over / Under 2.5 ---
         over = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 2)
         under = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j <= 2)
-        st.subheader("📈 Over / Under 2
+        st.subheader("📈 Over / Under 2.5")
+        over_under_df = {
+            "Type": ["Over 2.5", "Under 2.5"],
+            "Probabilité (%)": [round(over*100,2), round(under*100,2)]
+        }
+        fig_ou = px.pie(over_under_df, names="Type", values="Probabilité (%)", color="Type",
+                        color_discrete_map={"Over 2.5":"red", "Under 2.5":"blue"})
+        st.plotly_chart(fig_ou)
+
+        # --- Conseil pari + gains simulés ---
+        st.subheader("💡 Conseil pari avec gains estimés")
+        mise = 100  # mise virtuelle
+        if home_win > away_win:
+            st.success(f"Victoire domicile recommandée ({home_team})")
+            st.write(f"Gain estimé : {round(home_win*mise,2)} €")
+        elif away_win > home_win:
+            st.success(f"Victoire extérieur recommandée ({away_team})")
+            st.write(f"Gain estimé : {round(away_win*mise,2)} €")
+        else:
+            st.info("Match nul probable")
+            st.write(f"Gain estimé : {round(draw*mise,2)} €")
+
+else:
+    st.warning(f"Aucun match trouvé dans les {search_days} prochains jours pour {selected_ligue_name}")
