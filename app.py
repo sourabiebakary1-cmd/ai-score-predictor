@@ -3,11 +3,12 @@ import numpy as np
 import requests
 from scipy.stats import poisson
 from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 
-st.set_page_config(page_title="Bakary AI Predictor V6", layout="centered")
-st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V6")
-st.write("Tableau de bord interactif avec probabilités et top paris")
+st.set_page_config(page_title="Bakary AI Predictor V7", layout="centered")
+st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V7")
+st.write("Tableau de bord interactif pro pour paris football")
 
 API_KEY = "64907d87f835d9696c8d51b314693e51"
 headers = {"x-apisports-key": API_KEY}
@@ -66,21 +67,6 @@ if matches:
     home_def = st.slider("Défense domicile", 0.5, 3.0, 1.0)
     away_def = st.slider("Défense extérieur", 0.5, 3.0, 1.2)
 
-    # Classement ligue
-    st.subheader("📊 Classement ligue")
-    try:
-        stand_r = requests.get(standings_url, headers=headers, params={"league": selected_league_id, "season": 2025})
-        standings = stand_r.json()
-        if "response" in standings:
-            table = standings["response"][0]["league"]["standings"][0]
-            for t in table:
-                if t["team"]["name"] == home_team:
-                    st.write(f"🏠 {home_team} : {t['rank']}ème place, Points: {t['points']}")
-                if t["team"]["name"] == away_team:
-                    st.write(f"✈ {away_team} : {t['rank']}ème place, Points: {t['points']}")
-    except:
-        st.warning("Impossible de récupérer le classement")
-
     if st.button("🤖 Lancer IA"):
         home_lambda = home_attack * away_def
         away_lambda = away_attack * home_def
@@ -95,52 +81,52 @@ if matches:
         draw = np.sum(np.diag(matrix))
         away_win = np.sum(np.triu(matrix, 1))
 
-        st.subheader("📊 Probabilités")
-        st.write("🏠 Victoire domicile :", round(home_win*100,2), "%")
-        st.write("🤝 Match nul :", round(draw*100,2), "%")
-        st.write("✈ Victoire extérieur :", round(away_win*100,2), "%")
+        st.subheader("📊 Probabilités générales")
+        prob_df = {
+            "Résultat": ["Victoire domicile", "Match nul", "Victoire extérieur"],
+            "Probabilité (%)": [round(home_win*100,2), round(draw*100,2), round(away_win*100,2)]
+        }
+        fig = px.bar(prob_df, x="Résultat", y="Probabilité (%)", color="Résultat",
+                     text="Probabilité (%)", color_discrete_map={
+                         "Victoire domicile": "blue",
+                         "Match nul": "gray",
+                         "Victoire extérieur": "red"})
+        st.plotly_chart(fig)
 
-        # Heatmap des scores probables
-        st.subheader("🔥 Heatmap des scores probables")
-        fig, ax = plt.subplots()
-        im = ax.imshow(matrix, cmap='Reds')
-
-        ax.set_xticks(range(max_goals))
-        ax.set_yticks(range(max_goals))
-        ax.set_xlabel(f"💨 {away_team} Goals")
-        ax.set_ylabel(f"🏠 {home_team} Goals")
-        ax.set_title("Probabilité de chaque score")
-
-        # Annoter les probabilités
-        for i in range(max_goals):
-            for j in range(max_goals):
-                text = f"{matrix[i,j]*100:.1f}%"
-                ax.text(j, i, text, ha="center", va="center", color="black", fontsize=8)
-
-        st.pyplot(fig)
-
-        # Top 3 scores
+        # Top 5 scores probables
         scores = [((i,j), matrix[i,j]) for i in range(max_goals) for j in range(max_goals)]
         scores.sort(key=lambda x: x[1], reverse=True)
-        st.subheader("🎯 Top scores probables")
-        for s in scores[:3]:
-            st.write(f"{home_team} {s[0][0]} - {s[0][1]} {away_team} ({round(s[1]*100,2)}%)")
+        st.subheader("🎯 Top 5 scores probables")
+        score_labels = [f"{home_team} {s[0][0]} - {s[0][1]} {away_team}" for s in scores[:5]]
+        score_values = [round(s[1]*100,2) for s in scores[:5]]
+        fig_scores = px.bar(x=score_labels, y=score_values, text=score_values, labels={"x":"Score","y":"Probabilité (%)"},
+                            color=score_values, color_continuous_scale="Reds")
+        st.plotly_chart(fig_scores)
 
         # Over / Under 2.5
         over = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 2)
         under = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j <= 2)
         st.subheader("📈 Over / Under 2.5")
-        st.write(f"Over 2.5 : {round(over*100,2)}%")
-        st.write(f"Under 2.5 : {round(under*100,2)}%")
+        over_under_df = {
+            "Type": ["Over 2.5", "Under 2.5"],
+            "Probabilité (%)": [round(over*100,2), round(under*100,2)]
+        }
+        fig_ou = px.pie(over_under_df, names="Type", values="Probabilité (%)", color="Type",
+                        color_discrete_map={"Over 2.5":"red", "Under 2.5":"blue"})
+        st.plotly_chart(fig_ou)
 
-        # Conseil pari
-        st.subheader("💡 Conseil pari")
+        # Conseil pari + gains simulés
+        st.subheader("💡 Conseil pari avec gains estimés")
+        mise = 100  # Exemple mise virtuelle
         if home_win > away_win:
             st.success(f"Victoire domicile recommandée ({home_team})")
+            st.write(f"Gain estimé : {round(home_win*mise,2)} €")
         elif away_win > home_win:
             st.success(f"Victoire extérieur recommandée ({away_team})")
+            st.write(f"Gain estimé : {round(away_win*mise,2)} €")
         else:
             st.info("Match nul probable")
+            st.write(f"Gain estimé : {round(draw*mise,2)} €")
 
 else:
     st.warning(f"Aucun match trouvé dans les {search_days} prochains jours pour {selected_ligue_name}")
