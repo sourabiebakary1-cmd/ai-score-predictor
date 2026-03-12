@@ -4,19 +4,17 @@ import requests
 from scipy.stats import poisson
 from datetime import datetime
 
-st.set_page_config(page_title="Bakary Predictor AI", layout="centered")
+st.set_page_config(page_title="Bakary AI Predictor V3", layout="centered")
 
-st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V2")
-st.write("Analyse intelligente des matchs du jour")
+st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V3")
 
-# API KEY
 API_KEY = "64907d87f835d9696c8d51b314693e51"
-
-url = "https://v3.football.api-sports.io/fixtures"
 
 headers = {
     "x-apisports-key": API_KEY
 }
+
+fixture_url = "https://v3.football.api-sports.io/fixtures"
 
 today = datetime.today().strftime("%Y-%m-%d")
 
@@ -26,27 +24,23 @@ params = {
 
 matches = []
 
-st.write("🔎 Recherche des matchs...")
+st.write("🔎 Recherche matchs du jour...")
 
 try:
-    response = requests.get(url, headers=headers, params=params)
-    data = response.json()
+    r = requests.get(fixture_url, headers=headers, params=params)
+    data = r.json()
 
-    if "response" in data and len(data["response"]) > 0:
-        for match in data["response"]:
-            home = match["teams"]["home"]["name"]
-            away = match["teams"]["away"]["name"]
-            league = match["league"]["name"]
-            matches.append((home, away, league))
-    else:
-        st.warning("Aucun match trouvé aujourd'hui")
+    for m in data["response"]:
+        home = m["teams"]["home"]["name"]
+        away = m["teams"]["away"]["name"]
+        matches.append((home, away))
 
 except:
-    st.error("Erreur connexion API")
+    st.error("Erreur API")
 
 if matches:
 
-    match_names = [f"{m[0]} vs {m[1]} ({m[2]})" for m in matches]
+    match_names = [f"{m[0]} vs {m[1]}" for m in matches]
 
     selected = st.selectbox("Choisir un match", match_names)
 
@@ -55,23 +49,22 @@ if matches:
     home_team = matches[index][0]
     away_team = matches[index][1]
 
-    st.subheader("🏟️ Match sélectionné")
+    st.subheader("🏟 Match")
 
-    st.write("🏠", home_team)
-    st.write("✈️", away_team)
+    st.write(home_team, "vs", away_team)
 
-    st.subheader("📊 Paramètres IA")
+    st.subheader("⚙ Paramètres IA")
 
-    home_attack = st.slider("Attaque domicile", 0.5, 3.0, 1.6)
+    home_attack = st.slider("Attaque domicile", 0.5, 3.0, 1.7)
     away_attack = st.slider("Attaque extérieur", 0.5, 3.0, 1.3)
 
-    home_defense = st.slider("Défense domicile", 0.5, 3.0, 1.1)
-    away_defense = st.slider("Défense extérieur", 0.5, 3.0, 1.2)
+    home_def = st.slider("Défense domicile", 0.5, 3.0, 1.0)
+    away_def = st.slider("Défense extérieur", 0.5, 3.0, 1.2)
 
-    if st.button("🤖 Lancer analyse IA"):
+    if st.button("🤖 Lancer IA"):
 
-        home_lambda = home_attack * away_defense
-        away_lambda = away_attack * home_defense
+        home_lambda = home_attack * away_def
+        away_lambda = away_attack * home_def
 
         max_goals = 7
 
@@ -84,26 +77,40 @@ if matches:
         draw = np.sum(np.diag(matrix))
         away_win = np.sum(np.triu(matrix, 1))
 
-        st.subheader("📊 Probabilités résultat")
+        st.subheader("📊 Probabilités")
 
-        st.metric("🏠 Victoire domicile", f"{round(home_win*100,2)} %")
-        st.metric("🤝 Match nul", f"{round(draw*100,2)} %")
-        st.metric("✈️ Victoire extérieur", f"{round(away_win*100,2)} %")
+        st.write("🏠 Victoire domicile :", round(home_win*100,2), "%")
+        st.write("🤝 Match nul :", round(draw*100,2), "%")
+        st.write("✈ Victoire extérieur :", round(away_win*100,2), "%")
 
-        best_score = np.unravel_index(matrix.argmax(), matrix.shape)
+        st.subheader("🎯 Top scores probables")
 
-        st.subheader("🔥 Score le plus probable")
+        scores = []
 
-        st.success(f"{home_team} {best_score[0]} - {best_score[1]} {away_team}")
+        for i in range(max_goals):
+            for j in range(max_goals):
+                scores.append(((i,j), matrix[i][j]))
 
-        st.subheader("🎯 Conseils IA")
+        scores = sorted(scores, key=lambda x: x[1], reverse=True)
 
-        if home_win > away_win:
-            st.info("💡 Pari conseillé : Victoire domicile")
-        elif away_win > home_win:
-            st.info("💡 Pari conseillé : Victoire extérieur")
-        else:
-            st.info("💡 Pari conseillé : Match nul")
+        for s in scores[:3]:
+            st.write(f"{home_team} {s[0][0]} - {s[0][1]} {away_team}")
+
+        st.subheader("📈 Over / Under 2.5")
+
+        over = 0
+        under = 0
+
+        for i in range(max_goals):
+            for j in range(max_goals):
+                if i+j > 2:
+                    over += matrix[i][j]
+                else:
+                    under += matrix[i][j]
+
+        st.write("Over 2.5 :", round(over*100,2), "%")
+        st.write("Under 2.5 :", round(under*100,2), "%")
 
 else:
-    st.warning("Pas de matchs disponibles aujourd'hui")
+
+    st.warning("Aucun match aujourd'hui")
