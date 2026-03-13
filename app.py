@@ -33,11 +33,7 @@ matches = []
 for i in range(7):
     date_check = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
 
-    params = {
-        "date": date_check,
-        "season": 2025,
-        "league": league_id
-    }
+    params = {"date": date_to_check, "league": selected_league_id}
 
     r = requests.get(fixture_url, headers=headers, params=params)
     data = r.json()
