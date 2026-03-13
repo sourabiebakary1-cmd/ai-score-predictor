@@ -4,135 +4,143 @@ import requests
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 import plotly.express as px
-import plotly.graph_objects as go
 
-# --- Configuration de la page ---
-st.set_page_config(page_title="Bakary AI Predictor V7", layout="centered")
-st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V7")
-st.write("Tableau de bord interactif pro pour paris football")
+st.set_page_config(page_title="Bakary AI Predictor V8", layout="centered")
 
-# --- API Key ---
-API_KEY = "64907d87f835d9696c8d51b314693e51"
-headers = {"x-apisports-key": API_KEY}
-fixture_url = "https://v3.football.api-sports.io/fixtures"
-standings_url = "https://v3.football.api-sports.io/standings"
+st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V8")
 
-# --- Ligues disponibles ---
-ligues = {
-    "Premier League (Angleterre)": 39,
-    "Ligue 1 (France)": 61,
-    "Bundesliga (Allemagne)": 78,
-    "Serie A (Italie)": 135,
-    "LaLiga (Espagne)": 140
+API_KEY = "TA_CLE_API_ICI"
+
+headers = {
+    "x-apisports-key": API_KEY
 }
 
-# --- Sélection de la ligue ---
-selected_ligue_name = st.selectbox("Choisir la ligue", list(ligues.keys()))
-selected_league_id = ligues[selected_ligue_name]
+fixture_url = "https://v3.football.api-sports.io/fixtures"
 
-# --- Recherche des prochains matchs ---
+ligues = {
+    "Premier League": 39,
+    "Ligue 1": 61,
+    "Bundesliga": 78,
+    "Serie A": 135,
+    "LaLiga": 140
+}
+
+selected_ligue_name = st.selectbox("Choisir la ligue", list(ligues.keys()))
+league_id = ligues[selected_ligue_name]
+
 matches = []
-search_days = 7
-for i in range(search_days):
-    date_to_check = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
-    params = {"date": date_to_check, "season": 2025, "league": selected_league_id}
-    try:
-        r = requests.get(fixture_url, headers=headers, params=params)
-        data = r.json()
-        if "response" in data and len(data["response"]) > 0:
-            for m in data["response"]:
-                home = m["teams"]["home"]["name"]
-                away = m["teams"]["away"]["name"]
-                matches.append({"home": home, "away": away, "date": date_to_check})
-            if matches:
-                break
-    except:
-        st.error("Erreur connexion API.")
+
+for i in range(7):
+    date_check = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+
+    params = {
+        "date": date_check,
+        "season": 2025,
+        "league": league_id
+    }
+
+    r = requests.get(fixture_url, headers=headers, params=params)
+    data = r.json()
+
+    if "response" in data and len(data["response"]) > 0:
+
+        for m in data["response"]:
+
+            home = m["teams"]["home"]["name"]
+            away = m["teams"]["away"]["name"]
+
+            matches.append({
+                "home": home,
+                "away": away,
+                "date": date_check
+            })
+
         break
 
-# --- Affichage des matchs ---
+
 if matches:
-    st.write(f"🔎 Matchs trouvés pour {selected_ligue_name} le {matches[0]['date']}")
+
+    st.success("Matchs trouvés")
+
     match_names = [f"{m['home']} vs {m['away']}" for m in matches]
+
     selected = st.selectbox("Choisir un match", match_names)
+
     index = match_names.index(selected)
+
     match = matches[index]
 
     home_team = match["home"]
     away_team = match["away"]
 
-    st.subheader("🏟 Match sélectionné")
-    st.write(home_team, "vs", away_team)
+    st.subheader(f"{home_team} vs {away_team}")
 
-    # --- Paramètres IA ---
-    st.subheader("⚙ Paramètres IA")
-    home_attack = st.slider("Attaque domicile", 0.5, 3.0, 1.7)
+    st.subheader("Paramètres IA")
+
+    home_attack = st.slider("Attaque domicile", 0.5, 3.0, 1.6)
     away_attack = st.slider("Attaque extérieur", 0.5, 3.0, 1.3)
+
     home_def = st.slider("Défense domicile", 0.5, 3.0, 1.0)
     away_def = st.slider("Défense extérieur", 0.5, 3.0, 1.2)
 
-    if st.button("🤖 Lancer IA"):
+    if st.button("Lancer la prédiction IA"):
+
         home_lambda = home_attack * away_def
         away_lambda = away_attack * home_def
+
         max_goals = 7
 
-        # --- Calcul probabilités ---
         home_probs = [poisson.pmf(i, home_lambda) for i in range(max_goals)]
         away_probs = [poisson.pmf(i, away_lambda) for i in range(max_goals)]
+
         matrix = np.outer(home_probs, away_probs)
 
         home_win = np.sum(np.tril(matrix, -1))
         draw = np.sum(np.diag(matrix))
         away_win = np.sum(np.triu(matrix, 1))
 
-        # --- Probabilités générales ---
-        st.subheader("📊 Probabilités générales")
-        prob_df = {
-            "Résultat": ["Victoire domicile", "Match nul", "Victoire extérieur"],
-            "Probabilité (%)": [round(home_win*100,2), round(draw*100,2), round(away_win*100,2)]
+        st.subheader("Probabilités résultat")
+
+        results = {
+            "Résultat": ["Victoire domicile", "Nul", "Victoire extérieur"],
+            "Probabilité": [home_win*100, draw*100, away_win*100]
         }
-        fig = px.bar(prob_df, x="Résultat", y="Probabilité (%)", color="Résultat",
-                     text="Probabilité (%)", color_discrete_map={
-                         "Victoire domicile": "blue",
-                         "Match nul": "gray",
-                         "Victoire extérieur": "red"})
+
+        fig = px.bar(results, x="Résultat", y="Probabilité", text="Probabilité")
+
         st.plotly_chart(fig)
 
-        # --- Top 5 scores ---
-        scores = [((i,j), matrix[i,j]) for i in range(max_goals) for j in range(max_goals)]
+        scores = []
+
+        for i in range(max_goals):
+            for j in range(max_goals):
+
+                scores.append(((i, j), matrix[i][j]))
+
         scores.sort(key=lambda x: x[1], reverse=True)
-        st.subheader("🎯 Top 5 scores probables")
-        score_labels = [f"{home_team} {s[0][0]} - {s[0][1]} {away_team}" for s in scores[:5]]
-        score_values = [round(s[1]*100,2) for s in scores[:5]]
-        fig_scores = px.bar(x=score_labels, y=score_values, text=score_values,
-                            labels={"x":"Score","y":"Probabilité (%)"},
-                            color=score_values, color_continuous_scale="Reds")
-        st.plotly_chart(fig_scores)
 
-        # --- Over / Under 2.5 ---
-        over = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 2)
-        under = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j <= 2)
-        st.subheader("📈 Over / Under 2.5")
-        over_under_df = {
-            "Type": ["Over 2.5", "Under 2.5"],
-            "Probabilité (%)": [round(over*100,2), round(under*100,2)]
-        }
-        fig_ou = px.pie(over_under_df, names="Type", values="Probabilité (%)", color="Type",
-                        color_discrete_map={"Over 2.5":"red", "Under 2.5":"blue"})
-        st.plotly_chart(fig_ou)
+        st.subheader("Top 5 scores probables")
 
-        # --- Conseil pari + gains simulés ---
-        st.subheader("💡 Conseil pari avec gains estimés")
-        mise = 100  # mise virtuelle
-        if home_win > away_win:
-            st.success(f"Victoire domicile recommandée ({home_team})")
-            st.write(f"Gain estimé : {round(home_win*mise,2)} €")
-        elif away_win > home_win:
-            st.success(f"Victoire extérieur recommandée ({away_team})")
-            st.write(f"Gain estimé : {round(away_win*mise,2)} €")
-        else:
-            st.info("Match nul probable")
-            st.write(f"Gain estimé : {round(draw*mise,2)} €")
+        for s in scores[:5]:
+
+            st.write(f"{home_team} {s[0][0]} - {s[0][1]} {away_team} : {round(s[1]*100,2)} %")
+
+        over15 = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 1)
+        over25 = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 2)
+        over35 = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 3)
+
+        st.subheader("Over / Under")
+
+        st.write("Over 1.5 :", round(over15*100,2), "%")
+        st.write("Over 2.5 :", round(over25*100,2), "%")
+        st.write("Over 3.5 :", round(over35*100,2), "%")
+
+        btts = sum(matrix[i][j] for i in range(1, max_goals) for j in range(1, max_goals))
+
+        st.subheader("BTTS")
+
+        st.write("Les deux équipes marquent :", round(btts*100,2), "%")
 
 else:
-    st.warning(f"Aucun match trouvé dans les {search_days} prochains jours pour {selected_ligue_name}")
+
+    st.warning("Aucun match trouvé")
