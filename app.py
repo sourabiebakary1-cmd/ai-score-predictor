@@ -6,8 +6,8 @@ import pandas as pd
 from fpdf import FPDF
 from datetime import datetime
 
-st.set_page_config(page_title="Bakary AI Predictor V13 ULTRA", layout="wide")
-st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V13 ULTRA - 2026")
+st.set_page_config(page_title="Bakary AI Predictor V13 ULTRA - Intelligent", layout="wide")
+st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V13 ULTRA - Intelligent")
 
 # --- Configuration API ---
 API_KEY = "cc99563a7dm"
@@ -33,36 +33,32 @@ league_id = ligues[selected_ligue]
 last_matches = st.slider("Nombre de derniers matchs pour analyse", 3, 10, 5)
 stake = st.number_input("Mise pour calcul combiné (€)", min_value=1, value=100)
 recipient_email = st.text_input("Email pour recevoir le rapport PDF")
-next_matches = 7  # on récupère les 7 prochains matchs
-season = 2026      # saison actuelle
+next_matches = 7  # récupérer plusieurs prochains matchs
 
-# --- Récupérer prochains matchs ---
-params = {"league": league_id, "season": season, "next": next_matches}
-r = requests.get(fixtures_url, headers=headers, params=params)
-data = r.json()
-
+# --- Saison intelligente ---
+current_year = datetime.today().year
+possible_seasons = [current_year, current_year-1, current_year-2]  # essaie 2026, 2025, 2024
 matches = []
-if "response" in data:
-    for m in data["response"]:
-        matches.append({
-            "home": m["teams"]["home"]["name"],
-            "away": m["teams"]["away"]["name"],
-            "home_id": m["teams"]["home"]["id"],
-            "away_id": m["teams"]["away"]["id"],
-            "date": m["fixture"]["date"]
-        })
+
+for season in possible_seasons:
+    params = {"league": league_id, "season": season, "next": next_matches}
+    r = requests.get(fixtures_url, headers=headers, params=params)
+    data = r.json()
+    if "response" in data and len(data["response"]) > 0:
+        matches = data["response"]
+        st.info(f"Matchs trouvés pour la saison {season}")
+        break
 
 if matches:
-    st.subheader(f"Prochains {next_matches} matchs")
     table_data = []
     probs_list = []
 
-    for match in matches:
-        home_team = match["home"]
-        away_team = match["away"]
-        home_id = match["home_id"]
-        away_id = match["away_id"]
-        match_date = match["date"][:10]
+    for m in matches:
+        home_team = m["teams"]["home"]["name"]
+        away_team = m["teams"]["away"]["name"]
+        home_id = m["teams"]["home"]["id"]
+        away_id = m["teams"]["away"]["id"]
+        match_date = m["fixture"]["date"][:10]
 
         # Statistiques équipes
         try:
@@ -126,4 +122,4 @@ if matches:
     st.success(f"PDF généré : {pdf_file}")
 
 else:
-    st.warning(f"Aucun match trouvé pour les {next_matches} prochains matchs")
+    st.warning("Aucun match trouvé pour cette ligue. Essaie une autre ligue ou vérifie la saison disponible dans l’API.")
