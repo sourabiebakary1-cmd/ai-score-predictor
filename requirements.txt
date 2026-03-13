@@ -2,4 +2,6 @@ streamlit
 numpy
 requests
 scipy
+pandas
 plotly
+fpdf
