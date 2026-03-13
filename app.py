@@ -5,11 +5,9 @@ from scipy.stats import poisson
 import pandas as pd
 from fpdf import FPDF
 from datetime import datetime
-import smtplib
-from email.message import EmailMessage
 
 st.set_page_config(page_title="Bakary AI Predictor V13 ULTRA", layout="wide")
-st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V13 ULTRA")
+st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V13 ULTRA - 2026")
 
 # --- Configuration API ---
 API_KEY = "cc99563a7dm"
@@ -35,10 +33,11 @@ league_id = ligues[selected_ligue]
 last_matches = st.slider("Nombre de derniers matchs pour analyse", 3, 10, 5)
 stake = st.number_input("Mise pour calcul combiné (€)", min_value=1, value=100)
 recipient_email = st.text_input("Email pour recevoir le rapport PDF")
+next_matches = 7  # on récupère les 7 prochains matchs
+season = 2026      # saison actuelle
 
-# --- Récupérer matchs du jour ---
-today = datetime.today().strftime("%Y-%m-%d")
-params = {"league": league_id, "season": 2024, "date": today}
+# --- Récupérer prochains matchs ---
+params = {"league": league_id, "season": season, "next": next_matches}
 r = requests.get(fixtures_url, headers=headers, params=params)
 data = r.json()
 
@@ -54,7 +53,7 @@ if "response" in data:
         })
 
 if matches:
-    st.subheader(f"Matchs du jour ({today})")
+    st.subheader(f"Prochains {next_matches} matchs")
     table_data = []
     probs_list = []
 
@@ -63,11 +62,12 @@ if matches:
         away_team = match["away"]
         home_id = match["home_id"]
         away_id = match["away_id"]
+        match_date = match["date"][:10]
 
         # Statistiques équipes
         try:
-            r1 = requests.get(teams_url, headers=headers, params={"league": league_id, "team": home_id, "season": 2024, "last": last_matches})
-            r2 = requests.get(teams_url, headers=headers, params={"league": league_id, "team": away_id, "season": 2024, "last": last_matches})
+            r1 = requests.get(teams_url, headers=headers, params={"league": league_id, "team": home_id, "season": season, "last": last_matches})
+            r2 = requests.get(teams_url, headers=headers, params={"league": league_id, "team": away_id, "season": season, "last": last_matches})
             data_home = r1.json()
             data_away = r2.json()
             home_goals = data_home["response"]["goals"]["for"]["average"]["home"]
@@ -88,6 +88,7 @@ if matches:
             favorite = home_team if home_win > away_win else away_team
             table_data.append({
                 "Match": f"{home_team} vs {away_team}",
+                "Date": match_date,
                 "Favori": favorite,
                 "Domicile": round(home_win*100,2),
                 "Nul": round(draw*100,2),
@@ -112,39 +113,17 @@ if matches:
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, f"Rapport matchs du jour {today} - {selected_ligue}", ln=True, align="C")
+    pdf.cell(0, 10, f"Rapport prochains {next_matches} matchs - {selected_ligue}", ln=True, align="C")
     pdf.set_font("Arial", "", 12)
     pdf.ln(5)
     for idx, row in df.iterrows():
-        pdf.cell(0, 8, f"{row['Match']} | Favori: {row['Favori']} | Domicile {row['Domicile']}% / Nul {row['Nul']}% / Extérieur {row['Extérieur']}%", ln=True)
+        pdf.cell(0, 8, f"{row['Date']} - {row['Match']} | Favori: {row['Favori']} | Domicile {row['Domicile']}% / Nul {row['Nul']}% / Extérieur {row['Extérieur']}%", ln=True)
     pdf.ln(5)
     pdf.cell(0, 8, f"Probabilité combiné : {round(combined_prob*100,2)}%", ln=True)
     pdf.cell(0, 8, f"Gain estimé : {round(gain_estime,2)}€", ln=True)
-    pdf_file = f"rapport_{today}_{selected_ligue}.pdf"
+    pdf_file = f"rapport_prochains_matchs_{selected_ligue}.pdf"
     pdf.output(pdf_file)
     st.success(f"PDF généré : {pdf_file}")
 
-    # --- Envoi email automatique ---
-    if recipient_email:
-        try:
-            msg = EmailMessage()
-            msg['Subject'] = f"Rapport matchs du jour {today} - {selected_ligue}"
-            msg['From'] = "tonemail@example.com"  # <-- à remplacer par ton email
-            msg['To'] = recipient_email
-            msg.set_content(f"Bonjour,\n\nVoici le rapport des matchs du jour ({today}) pour {selected_ligue}.\n\nBonne lecture !")
-
-            with open(pdf_file, 'rb') as f:
-                file_data = f.read()
-                file_name = pdf_file
-            msg.add_attachment(file_data, maintype='application', subtype='pdf', filename=file_name)
-
-            # Connexion SMTP (exemple Gmail)
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-                smtp.login("tonemail@example.com", "TON_MDP_APP")  # <-- remplacer par email et mot de passe application
-                smtp.send_message(msg)
-            st.success(f"Email envoyé à {recipient_email} ✅")
-        except Exception as e:
-            st.error(f"Erreur envoi email: {e}")
-
 else:
-    st.warning("Aucun match trouvé pour aujourd'hui")
+    st.warning(f"Aucun match trouvé pour les {next_matches} prochains matchs")
