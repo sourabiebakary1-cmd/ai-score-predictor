@@ -3,11 +3,10 @@ import numpy as np
 import requests
 from scipy.stats import poisson
 from datetime import datetime, timedelta
-import plotly.express as px
 
-st.set_page_config(page_title="Bakary AI Predictor V8", layout="centered")
+st.set_page_config(page_title="Bakary AI Predictor V9", layout="centered")
 
-st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V8")
+st.title("⚽ BAKARY AI FOOTBALL PREDICTOR V9")
 
 API_KEY = "TA_CLE_API_ICI"
 
@@ -15,7 +14,8 @@ headers = {
     "x-apisports-key": API_KEY
 }
 
-fixture_url = "https://v3.football.api-sports.io/fixtures"
+fixtures_url = "https://v3.football.api-sports.io/fixtures"
+teams_url = "https://v3.football.api-sports.io/teams/statistics"
 
 ligues = {
     "Premier League": 39,
@@ -25,17 +25,22 @@ ligues = {
     "LaLiga": 140
 }
 
-selected_ligue_name = st.selectbox("Choisir la ligue", list(ligues.keys()))
-league_id = ligues[selected_ligue_name]
+selected_ligue = st.selectbox("Choisir la ligue", list(ligues.keys()))
+league_id = ligues[selected_ligue]
 
 matches = []
 
 for i in range(7):
+
     date_check = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
 
-    params = {"date": date_to_check, "league": selected_league_id}
+    params = {
+        "league": league_id,
+        "date": date_check
+    }
 
-    r = requests.get(fixture_url, headers=headers, params=params)
+    r = requests.get(fixtures_url, headers=headers, params=params)
+
     data = r.json()
 
     if "response" in data and len(data["response"]) > 0:
@@ -45,97 +50,102 @@ for i in range(7):
             home = m["teams"]["home"]["name"]
             away = m["teams"]["away"]["name"]
 
+            home_id = m["teams"]["home"]["id"]
+            away_id = m["teams"]["away"]["id"]
+
             matches.append({
                 "home": home,
                 "away": away,
-                "date": date_check
+                "home_id": home_id,
+                "away_id": away_id
             })
 
         break
 
-
 if matches:
 
-    st.success("Matchs trouvés")
+    match_list = [f"{m['home']} vs {m['away']}" for m in matches]
 
-    match_names = [f"{m['home']} vs {m['away']}" for m in matches]
+    selected_match = st.selectbox("Choisir un match", match_list)
 
-    selected = st.selectbox("Choisir un match", match_names)
-
-    index = match_names.index(selected)
+    index = match_list.index(selected_match)
 
     match = matches[index]
 
     home_team = match["home"]
     away_team = match["away"]
 
+    home_id = match["home_id"]
+    away_id = match["away_id"]
+
     st.subheader(f"{home_team} vs {away_team}")
 
-    st.subheader("Paramètres IA")
+    if st.button("Analyser le match"):
 
-    home_attack = st.slider("Attaque domicile", 0.5, 3.0, 1.6)
-    away_attack = st.slider("Attaque extérieur", 0.5, 3.0, 1.3)
-
-    home_def = st.slider("Défense domicile", 0.5, 3.0, 1.0)
-    away_def = st.slider("Défense extérieur", 0.5, 3.0, 1.2)
-
-    if st.button("Lancer la prédiction IA"):
-
-        home_lambda = home_attack * away_def
-        away_lambda = away_attack * home_def
-
-        max_goals = 7
-
-        home_probs = [poisson.pmf(i, home_lambda) for i in range(max_goals)]
-        away_probs = [poisson.pmf(i, away_lambda) for i in range(max_goals)]
-
-        matrix = np.outer(home_probs, away_probs)
-
-        home_win = np.sum(np.tril(matrix, -1))
-        draw = np.sum(np.diag(matrix))
-        away_win = np.sum(np.triu(matrix, 1))
-
-        st.subheader("Probabilités résultat")
-
-        results = {
-            "Résultat": ["Victoire domicile", "Nul", "Victoire extérieur"],
-            "Probabilité": [home_win*100, draw*100, away_win*100]
+        params_home = {
+            "league": league_id,
+            "team": home_id,
+            "season": 2024
         }
 
-        fig = px.bar(results, x="Résultat", y="Probabilité", text="Probabilité")
+        params_away = {
+            "league": league_id,
+            "team": away_id,
+            "season": 2024
+        }
 
-        st.plotly_chart(fig)
+        r1 = requests.get(teams_url, headers=headers, params=params_home)
+        r2 = requests.get(teams_url, headers=headers, params=params_away)
 
-        scores = []
+        data_home = r1.json()
+        data_away = r2.json()
 
-        for i in range(max_goals):
-            for j in range(max_goals):
+        try:
 
-                scores.append(((i, j), matrix[i][j]))
+            home_goals = data_home["response"]["goals"]["for"]["average"]["home"]
+            home_conceded = data_home["response"]["goals"]["against"]["average"]["home"]
 
-        scores.sort(key=lambda x: x[1], reverse=True)
+            away_goals = data_away["response"]["goals"]["for"]["average"]["away"]
+            away_conceded = data_away["response"]["goals"]["against"]["average"]["away"]
 
-        st.subheader("Top 5 scores probables")
+            home_lambda = float(home_goals) * float(away_conceded)
+            away_lambda = float(away_goals) * float(home_conceded)
 
-        for s in scores[:5]:
+            max_goals = 7
 
-            st.write(f"{home_team} {s[0][0]} - {s[0][1]} {away_team} : {round(s[1]*100,2)} %")
+            home_probs = [poisson.pmf(i, home_lambda) for i in range(max_goals)]
+            away_probs = [poisson.pmf(i, away_lambda) for i in range(max_goals)]
 
-        over15 = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 1)
-        over25 = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 2)
-        over35 = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j > 3)
+            matrix = np.outer(home_probs, away_probs)
 
-        st.subheader("Over / Under")
+            home_win = np.sum(np.tril(matrix, -1))
+            draw = np.sum(np.diag(matrix))
+            away_win = np.sum(np.triu(matrix, 1))
 
-        st.write("Over 1.5 :", round(over15*100,2), "%")
-        st.write("Over 2.5 :", round(over25*100,2), "%")
-        st.write("Over 3.5 :", round(over35*100,2), "%")
+            st.subheader("Probabilité résultat")
 
-        btts = sum(matrix[i][j] for i in range(1, max_goals) for j in range(1, max_goals))
+            st.write("Victoire domicile :", round(home_win*100,2), "%")
+            st.write("Match nul :", round(draw*100,2), "%")
+            st.write("Victoire extérieur :", round(away_win*100,2), "%")
 
-        st.subheader("BTTS")
+            scores = []
 
-        st.write("Les deux équipes marquent :", round(btts*100,2), "%")
+            for i in range(max_goals):
+                for j in range(max_goals):
+
+                    scores.append(((i,j), matrix[i][j]))
+
+            scores.sort(key=lambda x: x[1], reverse=True)
+
+            st.subheader("Top 3 scores probables")
+
+            for s in scores[:3]:
+
+                st.write(f"{home_team} {s[0][0]} - {s[0][1]} {away_team} : {round(s[1]*100,2)}%")
+
+        except:
+
+            st.error("Erreur récupération statistiques")
 
 else:
 
