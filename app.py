@@ -29,36 +29,35 @@ selected_ligue = st.selectbox("Choisir la ligue", list(ligues.keys()))
 league_id = ligues[selected_ligue]
 
 matches = []
+params = {
+    "league": league_id,
+    "season": 2024,
+    "next": 10
+}
 
-for i in range(7):
+r = requests.get(fixtures_url, headers=headers, params=params)
 
-    date_check = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+data = r.json()
 
-    params = {
-        "league": league_id,
-        "date": date_check
-    }
+matches = []
 
-    r = requests.get(fixtures_url, headers=headers, params=params)
+if "response" in data:
 
-    data = r.json()
+    for m in data["response"]:
 
-    if "response" in data and len(data["response"]) > 0:
+        home = m["teams"]["home"]["name"]
+        away = m["teams"]["away"]["name"]
 
-        for m in data["response"]:
+        home_id = m["teams"]["home"]["id"]
+        away_id = m["teams"]["away"]["id"]
 
-            home = m["teams"]["home"]["name"]
-            away = m["teams"]["away"]["name"]
+        matches.append({
+            "home": home,
+            "away": away,
+            "home_id": home_id,
+            "away_id": away_id
+        })
 
-            home_id = m["teams"]["home"]["id"]
-            away_id = m["teams"]["away"]["id"]
-
-            matches.append({
-                "home": home,
-                "away": away,
-                "home_id": home_id,
-                "away_id": away_id
-            })
 
         break
 
