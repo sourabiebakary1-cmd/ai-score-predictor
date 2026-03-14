@@ -33,7 +33,7 @@ last_matches = st.slider("Nombre de derniers matchs pour analyse", 3, 10, 5)
 stake = st.number_input("Mise pour calcul combiné (€)", min_value=1, value=100)
 recipient_email = st.text_input("Email pour recevoir le rapport PDF")
 
-# --- Récupérer les prochains matchs (matchs du jour)
+# --- Récupérer les matchs du jour
 today = datetime.today().strftime('%Y-%m-%d')
 fixtures_url = "https://free-api-live-football-data.p.rapidapi.com/football-matches"
 
@@ -56,8 +56,7 @@ if matches:
         away_team = m["away_team"]["name"]
         match_date = m["match_start"][:10]
 
-        # Ici, l'API RapidAPI ne donne pas toutes les stats, donc Poisson simplifié
-        # On prend une valeur moyenne arbitraire pour la démo
+        # Poisson simplifié (API RapidAPI ne fournit pas toutes les stats)
         home_lambda = 1.5
         away_lambda = 1.2
         max_goals = 7
@@ -100,4 +99,10 @@ if matches:
         pdf.cell(0, 8, f"{row['Date']} - {row['Match']} | Favori: {row['Favori']} | Domicile {row['Domicile']}% / Nul {row['Nul']}% / Extérieur {row['Extérieur']}%", ln=True)
     pdf.ln(5)
     pdf.cell(0, 8, f"Probabilité combiné : {round(combined_prob*100,2)}%", ln=True)
-    pdf.cell(0, 8, f"Gain estimé
+    pdf.cell(0, 8, f"Gain estimé : {round(gain_estime,2)}€", ln=True)
+    pdf_file = f"rapport_prochains_matchs_{selected_ligue}.pdf"
+    pdf.output(pdf_file)
+    st.success(f"PDF généré : {pdf_file}")
+
+else:
+    st.warning("❌ Aucun match trouvé pour aujourd'hui. Essaie une autre ligue ou vérifie la date.")
