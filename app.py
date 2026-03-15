@@ -1,14 +1,13 @@
 import streamlit as st
-import numpy as np
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import poisson
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V3", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V4", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V3")
-st.success("🧠 IA Avancée - Analyse intelligente")
+st.title("⚽ BAKARY AI FOOTBALL PRO V4")
+st.success("🧠 IA Football avancée")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
@@ -39,20 +38,16 @@ menu = st.sidebar.radio(
 ]
 )
 
-# API URL
+# URL API
 match_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED"
 standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
 
-# APPEL API SECURISE
+# API sécurisée
 try:
-    matches_response = requests.get(match_url, headers=headers)
-    standings_response = requests.get(standings_url, headers=headers)
-
-    matches_data = matches_response.json()
-    standings_data = standings_response.json()
-
+    matches_data = requests.get(match_url, headers=headers).json()
+    standings_data = requests.get(standings_url, headers=headers).json()
 except:
-    st.error("❌ Impossible de récupérer les données API")
+    st.error("❌ Erreur connexion API")
     st.stop()
 
 matches = matches_data.get("matches", [])
@@ -86,7 +81,7 @@ for team in table:
         continue
 
 
-def score_probable(home_xg, away_xg):
+def score_prediction(home_xg, away_xg):
 
     best_score = "0-0"
     max_prob = 0
@@ -105,7 +100,7 @@ def score_probable(home_xg, away_xg):
 
 data = []
 
-for m in matches[:25]:
+for m in matches[:30]:
 
     try:
 
@@ -124,25 +119,32 @@ for m in matches[:25]:
         home_xg = (home_attack + away_def)/2
         away_xg = (away_attack + home_def)/2
 
-        score, prob = score_probable(home_xg, away_xg)
+        score, prob = score_prediction(home_xg, away_xg)
 
         total = home_xg + away_xg
 
+        # Pronostic 1X2
+        if home_xg > away_xg + 0.3:
+            result = "🏠 Victoire domicile"
+        elif away_xg > home_xg + 0.3:
+            result = "🚀 Victoire extérieur"
+        else:
+            result = "🤝 Match nul possible"
+
+        # Over Under
         over25 = "Oui" if total > 2.5 else "Non"
 
-        if abs(home_attack-away_attack) < 0.15:
+        # Match piège
+        if abs(home_attack - away_attack) < 0.12:
             analyse = "⚠️ Match piège"
-
-        elif home_attack > away_attack:
-            analyse = "🏠 Avantage domicile"
-
         else:
-            analyse = "🚀 Avantage extérieur"
+            analyse = "✅ Stable"
 
         data.append({
             "Match": f"{home} vs {away}",
             "Score IA": score,
             "Probabilité %": prob,
+            "Pronostic": result,
             "Over 2.5": over25,
             "Analyse IA": analyse
         })
@@ -150,9 +152,9 @@ for m in matches[:25]:
     except:
         continue
 
-# SECURITE DATAFRAME
+
 if len(data) == 0:
-    st.warning("⚠️ Pas assez de données pour analyse")
+    st.warning("⚠️ Pas assez de données")
     st.stop()
 
 df = pd.DataFrame(data)
@@ -161,6 +163,7 @@ df = pd.DataFrame(data)
 if menu == "Analyse IA":
 
     st.subheader("📊 Analyse des matchs")
+
     st.dataframe(df)
 
 # TOP PARIS
@@ -177,7 +180,7 @@ if menu == "Top 5 paris sûrs":
     cote = 1
 
     for i in range(len(top)):
-        cote *= 1.6
+        cote *= 1.5
 
     gain = stake * cote
 
@@ -187,7 +190,7 @@ if menu == "Top 5 paris sûrs":
 # GRAPHIQUE
 if menu == "Graphique IA":
 
-    st.subheader("📈 Graphique IA")
+    st.subheader("📈 Graphique probabilité")
 
     fig, ax = plt.subplots()
 
