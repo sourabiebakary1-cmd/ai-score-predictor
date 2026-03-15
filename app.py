@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from scipy.stats import poisson
 from datetime import datetime
 
-st.set_page_config(page_title="BAKARY AI V35 QUANTUM PRO", layout="wide")
+st.set_page_config(page_title="BAKARY AI V36 QUANTUM PRO", layout="wide")
 
-st.title("🤖⚽ BAKARY AI FOOTBALL PREDICTOR V35 QUANTUM PRO")
+st.title("🤖⚽ BAKARY AI FOOTBALL PREDICTOR V36 QUANTUM PRO")
 
 API_KEY = "TA_CLE_API"
 
@@ -27,17 +27,12 @@ league_code = ligues[selected_ligue]
 
 stake = st.number_input("Mise (€)", min_value=1, value=100)
 
-match_url = f"https://api.football-data.org/v4/competitions/{league_code}/matches?status=SCHEDULED"
+match_url = f"https://api.football-data.org/v4/competitions/{league_code}/matches"
 standings_url = f"https://api.football-data.org/v4/competitions/{league_code}/standings"
 
 try:
-
-    matches_response = requests.get(match_url, headers=headers)
-    standings_response = requests.get(standings_url, headers=headers)
-
-    matches_data = matches_response.json()
-    standings_data = standings_response.json()
-
+    matches_data = requests.get(match_url, headers=headers).json()
+    standings_data = requests.get(standings_url, headers=headers).json()
 except:
     st.error("Erreur connexion API")
     st.stop()
@@ -45,8 +40,27 @@ except:
 matches = matches_data.get("matches", [])
 
 if len(matches) == 0:
-    st.warning("Aucun match programmé pour cette ligue")
+    st.warning("Aucun match trouvé dans l'API")
     st.stop()
+
+# filtrer matchs futurs
+today = datetime.utcnow()
+
+future_matches = []
+
+for m in matches:
+    try:
+        match_date = datetime.fromisoformat(m["utcDate"].replace("Z",""))
+        if match_date > today:
+            future_matches.append(m)
+    except:
+        continue
+
+if len(future_matches) == 0:
+    st.warning("Pas de matchs futurs disponibles")
+    st.stop()
+
+matches = future_matches
 
 standings = standings_data.get("standings", [])
 
@@ -57,16 +71,12 @@ if len(standings) == 0:
 table = standings[0]["table"]
 
 rank = {}
-points = {}
 goals_for = {}
 goals_against = {}
 
 for team in table:
-
     name = team["team"]["name"]
-
     rank[name] = team["position"]
-    points[name] = team["points"]
     goals_for[name] = team["goalsFor"]
     goals_against[name] = team["goalsAgainst"]
 
@@ -109,33 +119,17 @@ for m in matches:
     score_home = np.argmax(home_probs)
     score_away = np.argmax(away_probs)
 
-    total_goals = home_lambda + away_lambda
-
-    over25 = "YES" if total_goals > 2.5 else "NO"
-    btts = "YES" if home_lambda > 1 and away_lambda > 1 else "NO"
-
     results.append({
         "Match": f"{home} vs {away}",
         "Favori IA": favori,
         "Score probable": f"{score_home}-{score_away}",
-        "Probabilité %": round(prob*100,2),
-        "BTTS": btts,
-        "Over 2.5": over25
+        "Probabilité %": round(prob*100,2)
     })
 
 df = pd.DataFrame(results)
 
 st.subheader("📊 Analyse IA complète")
 st.dataframe(df)
-
-quantum = df[df["Probabilité %"] > 72]
-
-st.subheader("🧠 QUANTUM GOD BET")
-
-if len(quantum) > 0:
-    st.dataframe(quantum)
-else:
-    st.write("Aucun pari QUANTUM aujourd'hui")
 
 ticket = df[df["Probabilité %"] > 65].head(5)
 
