@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import requests
 import pandas as pd
+import random
 from scipy.stats import poisson
 from datetime import datetime
 
@@ -9,7 +10,6 @@ st.set_page_config(page_title="BAKARY AI FOOTBALL PREDICTOR", layout="wide")
 
 st.title("🤖⚽ BAKARY AI FOOTBALL PREDICTOR QUANTUM PRO")
 
-# TA CLÉ API
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
 headers = {"X-Auth-Token": API_KEY}
@@ -26,21 +26,19 @@ league_code = ligues[selected_ligue]
 
 stake = st.number_input("Mise (€)", min_value=1, value=100)
 
-# récupérer matchs
 url = f"https://api.football-data.org/v4/competitions/{league_code}/matches"
 
 response = requests.get(url, headers=headers)
 
 if response.status_code != 200:
-    st.error("Erreur API. Vérifie ta clé.")
+    st.error("Erreur API")
     st.stop()
 
 data = response.json()
-
 matches = data.get("matches", [])
 
 if len(matches) == 0:
-    st.warning("Aucun match trouvé dans l'API")
+    st.warning("Aucun match trouvé")
     st.stop()
 
 today = datetime.utcnow()
@@ -55,10 +53,6 @@ for m in matches:
     except:
         pass
 
-if len(future_matches) == 0:
-    st.warning("Aucun match programmé pour aujourd'hui")
-    st.stop()
-
 results = []
 
 for m in future_matches[:10]:
@@ -66,8 +60,18 @@ for m in future_matches[:10]:
     home = m["homeTeam"]["name"]
     away = m["awayTeam"]["name"]
 
-    home_lambda = 1.6
-    away_lambda = 1.2
+    # attaque/défense simulée
+    home_attack = random.uniform(1.3,2.5)
+    away_attack = random.uniform(1.0,2.2)
+
+    home_def = random.uniform(0.8,1.5)
+    away_def = random.uniform(0.8,1.5)
+
+    home_lambda = home_attack - away_def + 1.2
+    away_lambda = away_attack - home_def + 1.0
+
+    home_lambda = max(0.4, home_lambda)
+    away_lambda = max(0.4, away_lambda)
 
     max_goals = 6
 
@@ -87,7 +91,7 @@ for m in future_matches[:10]:
     elif prob == away_win:
         favori = away
     else:
-        favori = "Draw"
+        favori = "Match nul"
 
     score_home = np.argmax(home_probs)
     score_away = np.argmax(away_probs)
@@ -96,25 +100,25 @@ for m in future_matches[:10]:
         "Match": f"{home} vs {away}",
         "Prediction": favori,
         "Score probable": f"{score_home}-{score_away}",
-        "Probabilité": round(prob*100,2)
+        "Probabilité %": round(prob*100,2)
     })
 
 df = pd.DataFrame(results)
 
 st.subheader("📊 Prédictions IA")
-
 st.dataframe(df)
 
-ticket = df[df["Probabilité"] > 60].head(5)
+ticket = df[df["Probabilité %"] > 55].head(5)
 
 st.subheader("🎯 Ticket conseillé")
 
-st.dataframe(ticket)
+if len(ticket) > 0:
+    st.dataframe(ticket)
+else:
+    st.write("Pas de ticket fiable aujourd'hui")
 
 odds = 1.8
-
 gain = stake * (odds ** len(ticket))
 
 st.subheader("💰 Gain potentiel")
-
 st.write(round(gain,2),"€")
