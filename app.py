@@ -4,10 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import poisson
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V5", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V6 PRO", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V5")
-st.success("🧠 IA Football avancée avec analyse de forme")
+st.title("⚽ BAKARY AI FOOTBALL PRO V6 PRO")
+st.success("🧠 IA Football professionnelle")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
@@ -32,7 +32,7 @@ menu = st.sidebar.radio(
 "Navigation",
 [
 "Analyse IA",
-"Top 5 paris sûrs",
+"Top 10 paris sûrs",
 "Graphique IA"
 ]
 )
@@ -40,17 +40,18 @@ menu = st.sidebar.radio(
 match_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED"
 standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
 
+# API sécurisée
 try:
     matches_data = requests.get(match_url, headers=headers).json()
     standings_data = requests.get(standings_url, headers=headers).json()
 except:
-    st.error("❌ Erreur API")
+    st.error("❌ Erreur connexion API")
     st.stop()
 
 matches = matches_data.get("matches", [])
 
 if len(matches) == 0:
-    st.warning("⚠️ Aucun match disponible")
+    st.warning("⚠️ Aucun match trouvé")
     st.stop()
 
 try:
@@ -63,6 +64,7 @@ attack = {}
 defense = {}
 
 for team in table:
+
     try:
         name = team["team"]["name"]
         played = team["playedGames"]
@@ -96,7 +98,7 @@ def score_prediction(home_xg, away_xg):
 
 data = []
 
-for m in matches[:30]:
+for m in matches[:40]:
 
     try:
 
@@ -119,16 +121,19 @@ for m in matches[:30]:
 
         total = home_xg + away_xg
 
-        if home_xg > away_xg + 0.3:
+        # Pronostic 1X2
+        if home_xg > away_xg + 0.4:
             result = "🏠 Victoire domicile"
-        elif away_xg > home_xg + 0.3:
+        elif away_xg > home_xg + 0.4:
             result = "🚀 Victoire extérieur"
         else:
             result = "🤝 Match nul possible"
 
+        # Over Under
         over25 = "Oui" if total > 2.5 else "Non"
 
-        if abs(home_attack - away_attack) < 0.12:
+        # Match piège avancé
+        if abs(home_attack-away_attack) < 0.10:
             analyse = "⚠️ Match piège"
         else:
             analyse = "✅ Stable"
@@ -145,7 +150,6 @@ for m in matches[:30]:
     except:
         continue
 
-
 if len(data) == 0:
     st.warning("⚠️ Pas assez de données")
     st.stop()
@@ -159,11 +163,11 @@ if menu == "Analyse IA":
     st.dataframe(df)
 
 # TOP PARIS
-if menu == "Top 5 paris sûrs":
+if menu == "Top 10 paris sûrs":
 
-    st.subheader("🏆 Top 5 paris les plus sûrs")
+    st.subheader("🏆 Top 10 paris les plus sûrs")
 
-    top = df.sort_values("Probabilité %", ascending=False).head(5)
+    top = df.sort_values("Probabilité %", ascending=False).head(10)
 
     st.dataframe(top)
 
@@ -172,7 +176,7 @@ if menu == "Top 5 paris sûrs":
     cote = 1
 
     for i in range(len(top)):
-        cote *= 1.5
+        cote *= 1.45
 
     gain = stake * cote
 
