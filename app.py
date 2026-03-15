@@ -2,18 +2,18 @@ import streamlit as st
 import numpy as np
 import requests
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.stats import poisson
 from datetime import datetime
 
-st.set_page_config(page_title="BAKARY AI PRO", layout="wide")
+st.set_page_config(page_title="BAKARY AI", layout="wide")
 
-st.title("🤖⚽ BAKARY AI FOOTBALL ANALYTICS PRO")
+st.title("🤖⚽ BAKARY AI FOOTBALL PREDICTOR")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
-headers = {"X-Auth-Token": API_KEY}
 
-st.sidebar.title("⚙️ Paramètres IA")
+headers = {
+    "X-Auth-Token": API_KEY
+}
 
 ligues = {
     "Premier League":"PL",
@@ -22,19 +22,13 @@ ligues = {
     "Serie A":"SA",
     "Bundesliga":"BL1",
     "Championship":"ELC",
-    "Primeira Liga":"PPL",
-    "Brazil Serie A":"BSA"
+    "Primeira Liga":"PPL"
 }
 
-league_name = st.sidebar.selectbox("Choisir la ligue", list(ligues.keys()))
-league_code = ligues[league_name]
+league = st.selectbox("Choisir la ligue", list(ligues.keys()))
+league_code = ligues[league]
 
-stake = st.sidebar.number_input("Mise (€)", min_value=1, value=100)
-
-menu = st.sidebar.radio(
-    "Navigation",
-    ["📊 Analyse matchs","🔥 Top paris","📈 Statistiques"]
-)
+stake = st.number_input("Mise (€)", min_value=1, value=100)
 
 match_url = f"https://api.football-data.org/v4/competitions/{league_code}/matches"
 standings_url = f"https://api.football-data.org/v4/competitions/{league_code}/standings"
@@ -49,6 +43,7 @@ except:
 matches = matches_data.get("matches", [])
 
 today = datetime.utcnow()
+
 future_matches = []
 
 for m in matches:
@@ -59,18 +54,13 @@ for m in matches:
     except:
         pass
 
-standings = standings_data.get("standings", [])
-
-if not standings:
-    st.warning("Classement indisponible")
-    st.stop()
-
-table = standings[0]["table"]
+standings = standings_data["standings"][0]["table"]
 
 attack = {}
 defense = {}
 
-for team in table:
+for team in standings:
+
     name = team["team"]["name"]
     played = team["playedGames"]
 
@@ -82,7 +72,7 @@ for team in table:
 
 results = []
 
-for m in future_matches[:15]:
+for m in future_matches[:10]:
 
     home = m["homeTeam"]["name"]
     away = m["awayTeam"]["name"]
@@ -93,76 +83,37 @@ for m in future_matches[:15]:
     home_def = defense.get(home,1.2)
     away_def = defense.get(away,1.2)
 
-    home_lambda = home_attack / away_def
-    away_lambda = away_attack / home_def
-
-    home_lambda = max(0.4,home_lambda)
-    away_lambda = max(0.4,away_lambda)
+    home_lambda = max(0.4, home_attack / away_def)
+    away_lambda = max(0.4, away_attack / home_def)
 
     max_goals = 6
 
-    home_probs = [poisson.pmf(i,home_lambda) for i in range(max_goals)]
-    away_probs = [poisson.pmf(i,away_lambda) for i in range(max_goals)]
+    matrix = np.zeros((max_goals,max_goals))
 
-    matrix = np.outer(home_probs,away_probs)
+    for i in range(max_goals):
+        for j in range(max_goals):
+            matrix[i,j] = poisson.pmf(i,home_lambda) * poisson.pmf(j,away_lambda)
 
-    home_win = np.sum(np.tril(matrix,-1))
-    away_win = np.sum(np.triu(matrix,1))
-    draw = np.sum(np.diag(matrix))
+    best = np.unravel_index(np.argmax(matrix), matrix.shape)
 
-    prob = max(home_win,away_win,draw)
-
-    if prob == home_win:
-        prediction = home
-    elif prob == away_win:
-        prediction = away
-    else:
-        prediction = "Draw"
-
-    score_home = np.argmax(home_probs)
-    score_away = np.argmax(away_probs)
-
-    total_goals = home_lambda + away_lambda
-
-    over25 = "Oui" if total_goals > 2.5 else "Non"
-    btts = "Oui" if home_lambda > 1 and away_lambda > 1 else "Non"
-
-    trap = "⚠️ Match piège" if prob < 0.55 else "OK"
+    score = f"{best[0]}-{best[1]}"
+    prob = matrix[best]*100
 
     results.append({
-        "Match":f"{home} vs {away}",
-        "Prediction":prediction,
-        "Score probable":f"{score_home}-{score_away}",
-        "Over 2.5":over25,
-        "BTTS":btts,
-        "Probabilité %":round(prob*100,2),
-        "Analyse":trap
+        "Match": f"{home} vs {away}",
+        "Score probable": score,
+        "Probabilité %": round(prob,2)
     })
 
 df = pd.DataFrame(results)
 
-top5 = df.sort_values(by="Probabilité %", ascending=False).head(5)
+st.subheader("🎯 Scores les plus probables")
 
-if menu == "📊 Analyse matchs":
-    st.subheader("Analyse IA complète")
-    st.dataframe(df)
+st.dataframe(df)
 
-elif menu == "🔥 Top paris":
-    st.subheader("Top 5 paris les plus sûrs")
-    st.dataframe(top5)
+odds = 8
 
-elif menu == "📈 Statistiques":
-
-    fig, ax = plt.subplots()
-
-    ax.bar(df["Match"], df["Probabilité %"])
-
-    plt.xticks(rotation=90)
-
-    st.pyplot(fig)
-
-odds = 2.0
-gain = stake * (odds ** len(top5))
+gain = stake * odds
 
 st.subheader("💰 Gain potentiel")
 
