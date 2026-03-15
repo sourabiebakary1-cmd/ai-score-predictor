@@ -4,11 +4,11 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import poisson
-from datetime import datetime, timedelta
+from datetime import datetime
 
-st.set_page_config(page_title="BAKARY AI V34 ULTRA", layout="wide")
+st.set_page_config(page_title="BAKARY AI V35 QUANTUM PRO", layout="wide")
 
-st.title("🤖⚽ BAKARY AI FOOTBALL PREDICTOR V34 ULTRA AI")
+st.title("🤖⚽ BAKARY AI FOOTBALL PREDICTOR V35 QUANTUM PRO")
 
 API_KEY = "TA_CLE_API"
 
@@ -27,20 +27,12 @@ league_code = ligues[selected_ligue]
 
 stake = st.number_input("Mise (€)", min_value=1, value=100)
 
-today = datetime.today()
-future = today + timedelta(days=30)
-
-match_url = f"https://api.football-data.org/v4/competitions/{league_code}/matches"
+match_url = f"https://api.football-data.org/v4/competitions/{league_code}/matches?status=SCHEDULED"
 standings_url = f"https://api.football-data.org/v4/competitions/{league_code}/standings"
 
-params = {
-    "dateFrom": today.strftime('%Y-%m-%d'),
-    "dateTo": future.strftime('%Y-%m-%d')
-}
-
-# connexion API
 try:
-    matches_response = requests.get(match_url, headers=headers, params=params)
+
+    matches_response = requests.get(match_url, headers=headers)
     standings_response = requests.get(standings_url, headers=headers)
 
     matches_data = matches_response.json()
@@ -50,14 +42,12 @@ except:
     st.error("Erreur connexion API")
     st.stop()
 
-# récupérer matchs
 matches = matches_data.get("matches", [])
 
 if len(matches) == 0:
-    st.warning("Aucun match trouvé pour cette ligue")
+    st.warning("Aucun match programmé pour cette ligue")
     st.stop()
 
-# récupérer classement
 standings = standings_data.get("standings", [])
 
 if len(standings) == 0:
@@ -72,7 +62,9 @@ goals_for = {}
 goals_against = {}
 
 for team in table:
+
     name = team["team"]["name"]
+
     rank[name] = team["position"]
     points[name] = team["points"]
     goals_for[name] = team["goalsFor"]
@@ -85,20 +77,14 @@ for m in matches:
     home = m["homeTeam"]["name"]
     away = m["awayTeam"]["name"]
 
-    home_rank = rank.get(home,10)
-    away_rank = rank.get(away,10)
-
     home_attack = goals_for.get(home,20)/10
     away_attack = goals_for.get(away,20)/10
 
     home_def = goals_against.get(home,20)/10
     away_def = goals_against.get(away,20)/10
 
-    home_lambda = 1.8 + home_attack - away_def
-    away_lambda = 1.5 + away_attack - home_def
-
-    home_lambda = max(0.3,home_lambda)
-    away_lambda = max(0.3,away_lambda)
+    home_lambda = max(0.3, 1.8 + home_attack - away_def)
+    away_lambda = max(0.3, 1.5 + away_attack - home_def)
 
     max_goals = 6
 
@@ -126,7 +112,7 @@ for m in matches:
     total_goals = home_lambda + away_lambda
 
     over25 = "YES" if total_goals > 2.5 else "NO"
-    btts = "YES" if (home_lambda > 1 and away_lambda > 1) else "NO"
+    btts = "YES" if home_lambda > 1 and away_lambda > 1 else "NO"
 
     results.append({
         "Match": f"{home} vs {away}",
