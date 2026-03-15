@@ -5,15 +5,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import poisson
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V2", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V3", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V2")
+st.title("⚽ BAKARY AI FOOTBALL PRO V3")
 st.success("🧠 IA Avancée - Analyse intelligente")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
+
 headers = {"X-Auth-Token": API_KEY}
 
-# SIDEBAR
+# MENU
 st.sidebar.title("⚙️ Paramètres")
 
 ligues = {
@@ -33,7 +34,7 @@ menu = st.sidebar.radio(
 "Navigation",
 [
 "Analyse IA",
-"Top 3 paris sûrs",
+"Top 5 paris sûrs",
 "Graphique IA"
 ]
 )
@@ -42,21 +43,24 @@ menu = st.sidebar.radio(
 match_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED"
 standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
 
-# API REQUEST
+# APPEL API SECURISE
 try:
-    matches_data = requests.get(match_url, headers=headers).json()
-    standings_data = requests.get(standings_url, headers=headers).json()
+    matches_response = requests.get(match_url, headers=headers)
+    standings_response = requests.get(standings_url, headers=headers)
+
+    matches_data = matches_response.json()
+    standings_data = standings_response.json()
+
 except:
-    st.error("❌ Erreur connexion API")
+    st.error("❌ Impossible de récupérer les données API")
     st.stop()
 
 matches = matches_data.get("matches", [])
 
-if not matches:
-    st.warning("⚠️ Aucun match trouvé pour cette ligue")
+if len(matches) == 0:
+    st.warning("⚠️ Aucun match disponible")
     st.stop()
 
-# CLASSEMENT
 try:
     table = standings_data["standings"][0]["table"]
 except:
@@ -68,23 +72,27 @@ defense = {}
 
 for team in table:
 
-    name = team["team"]["name"]
-    played = team["playedGames"]
+    try:
+        name = team["team"]["name"]
+        played = team["playedGames"]
 
-    if played == 0:
+        if played == 0:
+            continue
+
+        attack[name] = team["goalsFor"] / played
+        defense[name] = team["goalsAgainst"] / played
+
+    except:
         continue
-
-    attack[name] = team["goalsFor"] / played
-    defense[name] = team["goalsAgainst"] / played
 
 
 def score_probable(home_xg, away_xg):
 
-    max_prob = 0
     best_score = "0-0"
+    max_prob = 0
 
-    for i in range(5):
-        for j in range(5):
+    for i in range(6):
+        for j in range(6):
 
             prob = poisson.pmf(i, home_xg) * poisson.pmf(j, away_xg)
 
@@ -92,12 +100,12 @@ def score_probable(home_xg, away_xg):
                 max_prob = prob
                 best_score = f"{i}-{j}"
 
-    return best_score, round(max_prob * 100, 2)
+    return best_score, round(max_prob*100,2)
 
 
 data = []
 
-for m in matches[:20]:
+for m in matches[:25]:
 
     try:
 
@@ -113,27 +121,36 @@ for m in matches[:20]:
         home_def = defense[home]
         away_def = defense[away]
 
-        home_xg = (home_attack + away_def) / 2
-        away_xg = (away_attack + home_def) / 2
+        home_xg = (home_attack + away_def)/2
+        away_xg = (away_attack + home_def)/2
 
         score, prob = score_probable(home_xg, away_xg)
 
-        over25 = "Oui" if home_xg + away_xg > 2.5 else "Non"
+        total = home_xg + away_xg
 
-        piege = "⚠️ Match piège" if abs(home_attack-away_attack) < 0.15 else "✅ Stable"
+        over25 = "Oui" if total > 2.5 else "Non"
+
+        if abs(home_attack-away_attack) < 0.15:
+            analyse = "⚠️ Match piège"
+
+        elif home_attack > away_attack:
+            analyse = "🏠 Avantage domicile"
+
+        else:
+            analyse = "🚀 Avantage extérieur"
 
         data.append({
             "Match": f"{home} vs {away}",
-            "Score probable": score,
+            "Score IA": score,
             "Probabilité %": prob,
             "Over 2.5": over25,
-            "Analyse": piege
+            "Analyse IA": analyse
         })
 
     except:
         continue
 
-
+# SECURITE DATAFRAME
 if len(data) == 0:
     st.warning("⚠️ Pas assez de données pour analyse")
     st.stop()
@@ -147,23 +164,30 @@ if menu == "Analyse IA":
     st.dataframe(df)
 
 # TOP PARIS
-if menu == "Top 3 paris sûrs":
+if menu == "Top 5 paris sûrs":
 
-    st.subheader("🏆 Top 3 paris les plus sûrs")
+    st.subheader("🏆 Top 5 paris les plus sûrs")
 
-    top = df.sort_values("Probabilité %", ascending=False).head(3)
+    top = df.sort_values("Probabilité %", ascending=False).head(5)
 
     st.dataframe(top)
 
-    gain = stake * 15
+    st.subheader("💰 Simulation combiné")
 
-    st.subheader("💰 Gain potentiel")
-    st.write(gain)
+    cote = 1
+
+    for i in range(len(top)):
+        cote *= 1.6
+
+    gain = stake * cote
+
+    st.write("Cote estimée :", round(cote,2))
+    st.write("Gain potentiel :", round(gain,2),"€")
 
 # GRAPHIQUE
 if menu == "Graphique IA":
 
-    st.subheader("📈 Graphique Probabilité")
+    st.subheader("📈 Graphique IA")
 
     fig, ax = plt.subplots()
 
