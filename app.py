@@ -38,10 +38,26 @@ params = {
     "dateTo": future.strftime('%Y-%m-%d')
 }
 
-matches_data = requests.get(match_url, headers=headers, params=params).json()
-standings_data = requests.get(standings_url, headers=headers).json()
+# 🔎 Connexion API sécurisée
+try:
+    matches_data = requests.get(match_url, headers=headers, params=params).json()
+    standings_data = requests.get(standings_url, headers=headers).json()
+except:
+    st.error("Erreur connexion API")
+    st.stop()
 
-matches = matches_data.get("matches", [])
+# 🔎 Vérifier les matchs
+if "matches" not in matches_data:
+    st.error("Impossible de récupérer les matchs")
+    st.stop()
+
+matches = matches_data["matches"]
+
+# 🔎 Vérifier le classement
+if "standings" not in standings_data or len(standings_data["standings"]) == 0:
+    st.error("Classement non disponible")
+    st.stop()
+
 table = standings_data["standings"][0]["table"]
 
 rank = {}
@@ -120,16 +136,27 @@ df = pd.DataFrame(results)
 st.subheader("📊 Analyse IA complète")
 st.dataframe(df)
 
+# 🔥 QUANTUM GOD BET
 quantum = df[df["Probabilité %"] > 72]
 
 st.subheader("🧠 QUANTUM GOD BET")
-st.dataframe(quantum)
 
+if len(quantum) > 0:
+    st.dataframe(quantum)
+else:
+    st.write("Aucun pari QUANTUM aujourd'hui")
+
+# 🎯 Ticket automatique
 ticket = df[df["Probabilité %"] > 65].head(5)
 
 st.subheader("🎯 Ticket IA automatique")
-st.dataframe(ticket)
 
+if len(ticket) > 0:
+    st.dataframe(ticket)
+else:
+    st.write("Pas de ticket aujourd'hui")
+
+# 💰 Simulation gain
 odds = 1.8
 combined = odds ** len(ticket)
 
@@ -140,12 +167,13 @@ st.subheader("💰 Simulation gain")
 st.write("Probabilité moyenne :", round(ticket["Probabilité %"].mean(),2),"%")
 st.write("Gain potentiel :", round(gain,2),"€")
 
+# 📈 Graphique IA
 fig, ax = plt.subplots()
 
 ax.bar(df["Match"], df["Probabilité %"])
 
 plt.xticks(rotation=90)
 
-st.subheader("📈 Graphique IA")
+st.subheader("📈 Graphique indice IA")
 
 st.pyplot(fig)
