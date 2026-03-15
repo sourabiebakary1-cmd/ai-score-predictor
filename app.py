@@ -3,14 +3,19 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import poisson
+import random
 
 st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V6 PRO", layout="wide")
 
 st.title("⚽ BAKARY AI FOOTBALL PRO V6 PRO")
 st.success("🧠 IA Football professionnelle")
 
+# 🔑 TA CLÉ API
 API_KEY = "289e8418878e48c598507cf2b72338f5"
-headers = {"X-Auth-Token": API_KEY}
+
+headers = {
+    "X-Auth-Token": API_KEY
+}
 
 # MENU
 st.sidebar.title("⚙️ Paramètres")
@@ -37,10 +42,11 @@ menu = st.sidebar.radio(
 ]
 )
 
+# URL API
 match_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED"
 standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
 
-# API sécurisée
+# connexion API sécurisée
 try:
     matches_data = requests.get(match_url, headers=headers).json()
     standings_data = requests.get(standings_url, headers=headers).json()
@@ -114,14 +120,21 @@ for m in matches[:40]:
         home_def = defense[home]
         away_def = defense[away]
 
-        home_xg = (home_attack + away_def)/2
-        away_xg = (away_attack + home_def)/2
+        # IA AMÉLIORÉE
+        home_xg = (home_attack * 1.3 + away_def * 0.7) + 0.35
+        away_xg = (away_attack * 1.1 + home_def * 0.6)
+
+        # variation IA
+        home_xg += random.uniform(-0.2,0.4)
+        away_xg += random.uniform(-0.2,0.4)
+
+        home_xg = max(0.2, min(home_xg, 3.5))
+        away_xg = max(0.2, min(away_xg, 3.5))
 
         score, prob = score_prediction(home_xg, away_xg)
 
         total = home_xg + away_xg
 
-        # Pronostic 1X2
         if home_xg > away_xg + 0.4:
             result = "🏠 Victoire domicile"
         elif away_xg > home_xg + 0.4:
@@ -129,10 +142,8 @@ for m in matches[:40]:
         else:
             result = "🤝 Match nul possible"
 
-        # Over Under
         over25 = "Oui" if total > 2.5 else "Non"
 
-        # Match piège avancé
         if abs(home_attack-away_attack) < 0.10:
             analyse = "⚠️ Match piège"
         else:
@@ -186,7 +197,7 @@ if menu == "Top 10 paris sûrs":
 # GRAPHIQUE
 if menu == "Graphique IA":
 
-    st.subheader("📈 Graphique des probabilités")
+    st.subheader("📈 Graphique probabilités")
 
     fig, ax = plt.subplots()
 
