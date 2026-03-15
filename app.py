@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="BAKARY AI V33 QUANTUM GOD", layout="wide")
+st.set_page_config(page_title="BAKARY AI V34 ULTRA", layout="wide")
 
-st.title("🤖⚽ BAKARY AI FOOTBALL PREDICTOR V33 QUANTUM GOD")
+st.title("🤖⚽ BAKARY AI FOOTBALL PREDICTOR V34 ULTRA AI")
 
-API_KEY = "289e8418878e48c598507cf2b72338f5"
+API_KEY = "TA_CLE_API"
 
 headers = {"X-Auth-Token": API_KEY}
 
@@ -19,9 +19,7 @@ ligues = {
     "Ligue 1": "FL1",
     "Bundesliga": "BL1",
     "Serie A": "SA",
-    "LaLiga": "PD",
-    "Primeira Liga": "PPL",
-    "Eredivisie": "DED"
+    "LaLiga": "PD"
 }
 
 selected_ligue = st.selectbox("Choisir la ligue", list(ligues.keys()))
@@ -40,12 +38,8 @@ params = {
     "dateTo": future.strftime('%Y-%m-%d')
 }
 
-try:
-    matches_data = requests.get(match_url, headers=headers, params=params).json()
-    standings_data = requests.get(standings_url, headers=headers).json()
-except:
-    st.error("Erreur connexion API")
-    st.stop()
+matches_data = requests.get(match_url, headers=headers, params=params).json()
+standings_data = requests.get(standings_url, headers=headers).json()
 
 matches = matches_data.get("matches", [])
 table = standings_data["standings"][0]["table"]
@@ -62,107 +56,96 @@ for team in table:
     goals_for[name] = team["goalsFor"]
     goals_against[name] = team["goalsAgainst"]
 
-if matches:
+results = []
 
-    results = []
+for m in matches:
 
-    for m in matches:
+    home = m["homeTeam"]["name"]
+    away = m["awayTeam"]["name"]
 
-        home = m["homeTeam"]["name"]
-        away = m["awayTeam"]["name"]
+    home_rank = rank.get(home,10)
+    away_rank = rank.get(away,10)
 
-        home_rank = rank.get(home,10)
-        away_rank = rank.get(away,10)
+    home_attack = goals_for.get(home,20)/10
+    away_attack = goals_for.get(away,20)/10
 
-        home_points = points.get(home,20)
-        away_points = points.get(away,20)
+    home_def = goals_against.get(home,20)/10
+    away_def = goals_against.get(away,20)/10
 
-        home_attack = goals_for.get(home,20)/10
-        away_attack = goals_for.get(away,20)/10
+    home_lambda = 1.8 + home_attack - away_def
+    away_lambda = 1.5 + away_attack - home_def
 
-        home_def = goals_against.get(home,20)/10
-        away_def = goals_against.get(away,20)/10
+    home_lambda = max(0.3,home_lambda)
+    away_lambda = max(0.3,away_lambda)
 
-        form = (home_points-away_points)*0.07
+    max_goals = 6
 
-        home_lambda = 1.9 + home_attack - away_def + form + (away_rank-home_rank)*0.1
-        away_lambda = 1.5 + away_attack - home_def - form + (home_rank-away_rank)*0.1
+    home_probs = [poisson.pmf(i,home_lambda) for i in range(max_goals)]
+    away_probs = [poisson.pmf(i,away_lambda) for i in range(max_goals)]
 
-        home_lambda = max(0.3,home_lambda)
-        away_lambda = max(0.3,away_lambda)
+    matrix = np.outer(home_probs,away_probs)
 
-        max_goals = 6
+    home_win = np.sum(np.tril(matrix,-1))
+    away_win = np.sum(np.triu(matrix,1))
+    draw = np.sum(np.diag(matrix))
 
-        home_probs = [poisson.pmf(i,home_lambda) for i in range(max_goals)]
-        away_probs = [poisson.pmf(i,away_lambda) for i in range(max_goals)]
+    prob = max(home_win,away_win,draw)
 
-        matrix = np.outer(home_probs,away_probs)
+    if prob == home_win:
+        favori = home
+    elif prob == away_win:
+        favori = away
+    else:
+        favori = "Draw"
 
-        home_win = np.sum(np.tril(matrix,-1))
-        away_win = np.sum(np.triu(matrix,1))
+    score_home = np.argmax(home_probs)
+    score_away = np.argmax(away_probs)
 
-        prob = max(home_win,away_win)
+    total_goals = home_lambda + away_lambda
 
-        favorite = home if home_win>away_win else away
+    over25 = "YES" if total_goals > 2.5 else "NO"
+    btts = "YES" if (home_lambda > 1 and away_lambda > 1) else "NO"
 
-        over25 = sum(matrix[i][j] for i in range(max_goals) for j in range(max_goals) if i+j>2)
+    results.append({
+        "Match": f"{home} vs {away}",
+        "Favori IA": favori,
+        "Score probable": f"{score_home}-{score_away}",
+        "Probabilité %": round(prob*100,2),
+        "BTTS": btts,
+        "Over 2.5": over25
+    })
 
-        btts = sum(matrix[i][j] for i in range(1,max_goals) for j in range(1,max_goals))
+df = pd.DataFrame(results)
 
-        idx = np.unravel_index(matrix.argmax(),matrix.shape)
-        score = f"{idx[0]} - {idx[1]}"
+st.subheader("📊 Analyse IA complète")
+st.dataframe(df)
 
-        confidence = prob*100
+quantum = df[df["Probabilité %"] > 72]
 
-        quantum = "⚛️ QUANTUM GOD BET" if confidence > 98 else ""
+st.subheader("🧠 QUANTUM GOD BET")
+st.dataframe(quantum)
 
-        results.append({
-            "Match":f"{home} vs {away}",
-            "Favori IA":favorite,
-            "Score probable":score,
-            "Probabilité %":round(prob*100,2),
-            "BTTS %":round(btts*100,2),
-            "Over 2.5 %":round(over25*100,2),
-            "Indice IA":round(confidence,2),
-            "QUANTUM GOD":quantum
-        })
+ticket = df[df["Probabilité %"] > 65].head(5)
 
-    df = pd.DataFrame(results)
+st.subheader("🎯 Ticket IA automatique")
+st.dataframe(ticket)
 
-    df["Score IA GLOBAL"] = df["Probabilité %"]*0.5 + df["Over 2.5 %"]*0.3 + df["BTTS %"]*0.2
+odds = 1.8
+combined = odds ** len(ticket)
 
-    st.subheader("📊 Analyse IA complète")
-    st.dataframe(df,use_container_width=True)
+gain = stake * combined
 
-    quantum = df[df["QUANTUM GOD"]!=""]
+st.subheader("💰 Simulation gain")
 
-    st.subheader("⚛️ QUANTUM GOD BET")
-    st.dataframe(quantum)
+st.write("Probabilité moyenne :", round(ticket["Probabilité %"].mean(),2),"%")
+st.write("Gain potentiel :", round(gain,2),"€")
 
-    ticket = df.sort_values("Score IA GLOBAL",ascending=False).head(5)
+fig, ax = plt.subplots()
 
-    st.subheader("🎯 Ticket IA automatique")
-    st.dataframe(ticket)
+ax.bar(df["Match"], df["Probabilité %"])
 
-    probs = ticket["Probabilité %"].values/100
+plt.xticks(rotation=90)
 
-    combined_prob = np.prod(probs)
+st.subheader("📈 Graphique IA")
 
-    gain = stake*(1/combined_prob) if combined_prob>0 else 0
-
-    st.subheader("💰 Simulation gain")
-
-    st.write("Probabilité combiné :",round(combined_prob*100,2),"%")
-    st.write("Gain potentiel :",round(gain,2),"€")
-
-    st.subheader("📈 Graphique indice IA")
-
-    fig, ax = plt.subplots()
-    ax.bar(df["Match"],df["Indice IA"])
-    plt.xticks(rotation=45)
-
-    st.pyplot(fig)
-
-else:
-
-    st.warning("Aucun match trouvé")
+st.pyplot(fig)
