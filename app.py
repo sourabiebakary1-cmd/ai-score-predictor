@@ -3,7 +3,7 @@ import numpy as np
 import requests
 import pandas as pd
 from scipy.stats import poisson
-from datetime import datetime
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="BAKARY AI V18 SUPREME", layout="wide")
 
@@ -30,17 +30,23 @@ league_code = ligues[selected_ligue]
 
 stake = st.number_input("Mise (€)", min_value=1, value=100)
 
-today = datetime.today().strftime('%Y-%m-%d')
+# Dates (7 prochains jours)
+today = datetime.today()
+future = today + timedelta(days=7)
 
 url = f"https://api.football-data.org/v4/competitions/{league_code}/matches"
 
 params = {
-    "dateFrom": today,
-    "dateTo": today
+    "dateFrom": today.strftime('%Y-%m-%d'),
+    "dateTo": future.strftime('%Y-%m-%d')
 }
 
-response = requests.get(url, headers=headers, params=params)
-data = response.json()
+try:
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+except:
+    st.error("Erreur connexion API")
+    st.stop()
 
 matches = data.get("matches", [])
 
@@ -53,6 +59,7 @@ if matches:
 
         home = m["homeTeam"]["name"]
         away = m["awayTeam"]["name"]
+        match_date = m["utcDate"][:10]
 
         home_lambda = 1.6
         away_lambda = 1.2
@@ -82,6 +89,7 @@ if matches:
         btts = sum(matrix[i][j] for i in range(1,max_goals) for j in range(1,max_goals))
 
         results.append({
+            "Date": match_date,
             "Match": f"{home} vs {away}",
             "Favori": favorite,
             "Score probable": score,
@@ -108,9 +116,8 @@ if matches:
     st.subheader("💰 Simulation ticket combiné")
 
     st.write(f"Probabilité combiné : {round(combined_prob*100,2)} %")
-
     st.write(f"Gain potentiel estimé : {round(gain,2)} €")
 
 else:
 
-    st.warning("❌ Aucun match trouvé aujourd'hui.")
+    st.warning("❌ Aucun match trouvé pour les 7 prochains jours.")
