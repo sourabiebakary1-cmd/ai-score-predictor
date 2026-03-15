@@ -28,7 +28,7 @@ league_code = ligues[selected_ligue]
 stake = st.number_input("Mise (€)", min_value=1, value=100)
 
 today = datetime.today()
-future = today + timedelta(days=7)
+future = today + timedelta(days=30)
 
 match_url = f"https://api.football-data.org/v4/competitions/{league_code}/matches"
 standings_url = f"https://api.football-data.org/v4/competitions/{league_code}/standings"
@@ -38,27 +38,33 @@ params = {
     "dateTo": future.strftime('%Y-%m-%d')
 }
 
-# 🔎 Connexion API sécurisée
+# connexion API
 try:
-    matches_data = requests.get(match_url, headers=headers, params=params).json()
-    standings_data = requests.get(standings_url, headers=headers).json()
+    matches_response = requests.get(match_url, headers=headers, params=params)
+    standings_response = requests.get(standings_url, headers=headers)
+
+    matches_data = matches_response.json()
+    standings_data = standings_response.json()
+
 except:
     st.error("Erreur connexion API")
     st.stop()
 
-# 🔎 Vérifier les matchs
-if "matches" not in matches_data:
-    st.error("Impossible de récupérer les matchs")
+# récupérer matchs
+matches = matches_data.get("matches", [])
+
+if len(matches) == 0:
+    st.warning("Aucun match trouvé pour cette ligue")
     st.stop()
 
-matches = matches_data["matches"]
+# récupérer classement
+standings = standings_data.get("standings", [])
 
-# 🔎 Vérifier le classement
-if "standings" not in standings_data or len(standings_data["standings"]) == 0:
-    st.error("Classement non disponible")
+if len(standings) == 0:
+    st.warning("Classement indisponible")
     st.stop()
 
-table = standings_data["standings"][0]["table"]
+table = standings[0]["table"]
 
 rank = {}
 points = {}
@@ -136,7 +142,6 @@ df = pd.DataFrame(results)
 st.subheader("📊 Analyse IA complète")
 st.dataframe(df)
 
-# 🔥 QUANTUM GOD BET
 quantum = df[df["Probabilité %"] > 72]
 
 st.subheader("🧠 QUANTUM GOD BET")
@@ -146,7 +151,6 @@ if len(quantum) > 0:
 else:
     st.write("Aucun pari QUANTUM aujourd'hui")
 
-# 🎯 Ticket automatique
 ticket = df[df["Probabilité %"] > 65].head(5)
 
 st.subheader("🎯 Ticket IA automatique")
@@ -156,7 +160,6 @@ if len(ticket) > 0:
 else:
     st.write("Pas de ticket aujourd'hui")
 
-# 💰 Simulation gain
 odds = 1.8
 combined = odds ** len(ticket)
 
@@ -167,7 +170,6 @@ st.subheader("💰 Simulation gain")
 st.write("Probabilité moyenne :", round(ticket["Probabilité %"].mean(),2),"%")
 st.write("Gain potentiel :", round(gain,2),"€")
 
-# 📈 Graphique IA
 fig, ax = plt.subplots()
 
 ax.bar(df["Match"], df["Probabilité %"])
