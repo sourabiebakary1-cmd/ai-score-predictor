@@ -4,13 +4,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import poisson
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V4", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V5", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V4")
-st.success("🧠 IA Football avancée")
+st.title("⚽ BAKARY AI FOOTBALL PRO V5")
+st.success("🧠 IA Football avancée avec analyse de forme")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
-
 headers = {"X-Auth-Token": API_KEY}
 
 # MENU
@@ -38,16 +37,14 @@ menu = st.sidebar.radio(
 ]
 )
 
-# URL API
 match_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED"
 standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
 
-# API sécurisée
 try:
     matches_data = requests.get(match_url, headers=headers).json()
     standings_data = requests.get(standings_url, headers=headers).json()
 except:
-    st.error("❌ Erreur connexion API")
+    st.error("❌ Erreur API")
     st.stop()
 
 matches = matches_data.get("matches", [])
@@ -66,7 +63,6 @@ attack = {}
 defense = {}
 
 for team in table:
-
     try:
         name = team["team"]["name"]
         played = team["playedGames"]
@@ -123,7 +119,6 @@ for m in matches[:30]:
 
         total = home_xg + away_xg
 
-        # Pronostic 1X2
         if home_xg > away_xg + 0.3:
             result = "🏠 Victoire domicile"
         elif away_xg > home_xg + 0.3:
@@ -131,10 +126,8 @@ for m in matches[:30]:
         else:
             result = "🤝 Match nul possible"
 
-        # Over Under
         over25 = "Oui" if total > 2.5 else "Non"
 
-        # Match piège
         if abs(home_attack - away_attack) < 0.12:
             analyse = "⚠️ Match piège"
         else:
@@ -163,7 +156,6 @@ df = pd.DataFrame(data)
 if menu == "Analyse IA":
 
     st.subheader("📊 Analyse des matchs")
-
     st.dataframe(df)
 
 # TOP PARIS
@@ -190,7 +182,7 @@ if menu == "Top 5 paris sûrs":
 # GRAPHIQUE
 if menu == "Graphique IA":
 
-    st.subheader("📈 Graphique probabilité")
+    st.subheader("📈 Graphique des probabilités")
 
     fig, ax = plt.subplots()
 
