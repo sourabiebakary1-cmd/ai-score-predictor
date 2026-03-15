@@ -72,11 +72,12 @@ if matches:
         matrix = np.outer(home_probs, away_probs)
 
         home_win = np.sum(np.tril(matrix,-1))
-        draw = np.sum(np.diag(matrix))
         away_win = np.sum(np.triu(matrix,1))
 
         favorite = home if home_win > away_win else away
-        probs.append(max(home_win,away_win))
+        prob = max(home_win, away_win)
+
+        probs.append(prob)
 
         # score exact
         idx = np.unravel_index(matrix.argmax(),matrix.shape)
@@ -92,6 +93,7 @@ if matches:
             "Date": match_date,
             "Match": f"{home} vs {away}",
             "Favori": favorite,
+            "Probabilité": round(prob*100,2),
             "Score probable": score,
             "Over 2.5 %": round(over25*100,2),
             "BTTS %": round(btts*100,2)
@@ -108,10 +110,13 @@ if matches:
     st.subheader("🔥 Top 5 matchs à fort potentiel")
     st.dataframe(top)
 
-    # COMBINÉ
-    combined_prob = np.prod(probs)
+    # Probabilités du TOP 5
+    top_probs = top["Probabilité"].values / 100
 
-    gain = stake / combined_prob if combined_prob>0 else 0
+    # COMBINÉ
+    combined_prob = np.prod(top_probs)
+
+    gain = stake * (1/combined_prob) if combined_prob>0 else 0
 
     st.subheader("💰 Simulation ticket combiné")
 
