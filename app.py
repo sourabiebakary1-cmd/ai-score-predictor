@@ -5,19 +5,21 @@ import matplotlib.pyplot as plt
 from scipy.stats import poisson
 import random
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V6 PRO", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V7", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V6 PRO")
+st.title("⚽ BAKARY AI FOOTBALL PRO V7")
 st.success("🧠 IA Football professionnelle")
 
-# 🔑 TA CLÉ API
+🔑 TA CLÉ API
+
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
 headers = {
-    "X-Auth-Token": API_KEY
+"X-Auth-Token": API_KEY
 }
 
-# MENU
+MENU
+
 st.sidebar.title("⚙️ Paramètres")
 
 ligues = {
@@ -37,172 +39,187 @@ menu = st.sidebar.radio(
 "Navigation",
 [
 "Analyse IA",
-"Top 10 paris sûrs",
+"Top 5 paris sûrs",
 "Graphique IA"
 ]
 )
 
-# URL API
+URL API
+
 match_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED"
 standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
 
-# connexion API sécurisée
+connexion API sécurisée
+
 try:
-    matches_data = requests.get(match_url, headers=headers).json()
-    standings_data = requests.get(standings_url, headers=headers).json()
+matches_data = requests.get(match_url, headers=headers).json()
+standings_data = requests.get(standings_url, headers=headers).json()
 except:
-    st.error("❌ Erreur connexion API")
-    st.stop()
+st.error("❌ Erreur connexion API")
+st.stop()
 
 matches = matches_data.get("matches", [])
 
 if len(matches) == 0:
-    st.warning("⚠️ Aucun match trouvé")
-    st.stop()
+st.warning("⚠️ Aucun match trouvé")
+st.stop()
 
 try:
-    table = standings_data["standings"][0]["table"]
+table = standings_data["standings"][0]["table"]
 except:
-    st.error("❌ Classement indisponible")
-    st.stop()
+st.error("❌ Classement indisponible")
+st.stop()
 
 attack = {}
 defense = {}
 
 for team in table:
+try:
+name = team["team"]["name"]
+played = team["playedGames"]
 
-    try:
-        name = team["team"]["name"]
-        played = team["playedGames"]
-
-        if played == 0:
-            continue
-
-        attack[name] = team["goalsFor"] / played
-        defense[name] = team["goalsAgainst"] / played
-
-    except:
+    if played == 0:
         continue
 
+    attack[name] = team["goalsFor"] / played
+    defense[name] = team["goalsAgainst"] / played
+
+except:
+    continue
+
+🎯 SCORE EXACT INTELLIGENT
 
 def score_prediction(home_xg, away_xg):
 
-    best_score = "0-0"
-    max_prob = 0
+best_score = "0-0"
+max_prob = 0
 
-    for i in range(6):
-        for j in range(6):
+for i in range(6):
+    for j in range(6):
 
-            prob = poisson.pmf(i, home_xg) * poisson.pmf(j, away_xg)
+        prob = poisson.pmf(i, home_xg) * poisson.pmf(j, away_xg)
 
-            if prob > max_prob:
-                max_prob = prob
-                best_score = f"{i}-{j}"
+        if prob > max_prob:
+            max_prob = prob
+            best_score = f"{i}-{j}"
 
-    return best_score, round(max_prob*100,2)
-
+return best_score, round(max_prob*100,2)
 
 data = []
 
 for m in matches[:40]:
 
-    try:
+try:
 
-        home = m["homeTeam"]["name"]
-        away = m["awayTeam"]["name"]
+    home = m["homeTeam"]["name"]
+    away = m["awayTeam"]["name"]
 
-        if home not in attack or away not in attack:
-            continue
-
-        home_attack = attack[home]
-        away_attack = attack[away]
-
-        home_def = defense[home]
-        away_def = defense[away]
-
-        # IA AMÉLIORÉE
-        home_xg = (home_attack * 1.3 + away_def * 0.7) + 0.35
-        away_xg = (away_attack * 1.1 + home_def * 0.6)
-
-        # variation IA
-        home_xg += random.uniform(-0.2,0.4)
-        away_xg += random.uniform(-0.2,0.4)
-
-        home_xg = max(0.2, min(home_xg, 3.5))
-        away_xg = max(0.2, min(away_xg, 3.5))
-
-        score, prob = score_prediction(home_xg, away_xg)
-
-        total = home_xg + away_xg
-
-        if home_xg > away_xg + 0.4:
-            result = "🏠 Victoire domicile"
-        elif away_xg > home_xg + 0.4:
-            result = "🚀 Victoire extérieur"
-        else:
-            result = "🤝 Match nul possible"
-
-        over25 = "Oui" if total > 2.5 else "Non"
-
-        if abs(home_attack-away_attack) < 0.10:
-            analyse = "⚠️ Match piège"
-        else:
-            analyse = "✅ Stable"
-
-        data.append({
-            "Match": f"{home} vs {away}",
-            "Score IA": score,
-            "Probabilité %": prob,
-            "Pronostic": result,
-            "Over 2.5": over25,
-            "Analyse IA": analyse
-        })
-
-    except:
+    if home not in attack or away not in attack:
         continue
 
+    home_attack = attack[home]
+    away_attack = attack[away]
+
+    home_def = defense[home]
+    away_def = defense[away]
+
+    # IA AMÉLIORÉE
+    home_xg = (home_attack * 1.3 + away_def * 0.7) + 0.35
+    away_xg = (away_attack * 1.1 + home_def * 0.6)
+
+    # variation IA
+    home_xg += random.uniform(-0.2,0.4)
+    away_xg += random.uniform(-0.2,0.4)
+
+    home_xg = max(0.2, min(home_xg, 3.5))
+    away_xg = max(0.2, min(away_xg, 3.5))
+
+    score, prob = score_prediction(home_xg, away_xg)
+
+    total = home_xg + away_xg
+
+    # PRONOSTIC
+    if home_xg > away_xg + 0.4:
+        result = "🏠 Victoire domicile"
+    elif away_xg > home_xg + 0.4:
+        result = "🚀 Victoire extérieur"
+    else:
+        result = "🤝 Match nul possible"
+
+    over25 = "Oui" if total > 2.5 else "Non"
+
+    # 🔎 DETECTION MATCH PIEGE
+    if abs(home_attack-away_attack) < 0.15:
+        analyse = "⚠️ Match piège"
+    elif abs(home_xg-away_xg) < 0.25:
+        analyse = "⚠️ Match incertain"
+    else:
+        analyse = "✅ Stable"
+
+    # ⚠️ MATCH A EVITER
+    if prob < 8:
+        risk = "🚫 À éviter"
+    else:
+        risk = "OK"
+
+    data.append({
+        "Match": f"{home} vs {away}",
+        "Score IA": score,
+        "Probabilité %": prob,
+        "Pronostic": result,
+        "Over 2.5": over25,
+        "Analyse IA": analyse,
+        "Risque": risk
+    })
+
+except:
+    continue
+
 if len(data) == 0:
-    st.warning("⚠️ Pas assez de données")
-    st.stop()
+st.warning("⚠️ Pas assez de données")
+st.stop()
 
 df = pd.DataFrame(data)
 
-# ANALYSE
+ANALYSE
+
 if menu == "Analyse IA":
 
-    st.subheader("📊 Analyse des matchs")
-    st.dataframe(df)
+st.subheader("📊 Analyse des matchs")
+st.dataframe(df)
 
-# TOP PARIS
-if menu == "Top 10 paris sûrs":
+TOP PARIS
 
-    st.subheader("🏆 Top 10 paris les plus sûrs")
+if menu == "Top 5 paris sûrs":
 
-    top = df.sort_values("Probabilité %", ascending=False).head(10)
+st.subheader("🏆 Top 5 paris les plus sûrs")
 
-    st.dataframe(top)
+top = df.sort_values("Probabilité %", ascending=False).head(5)
 
-    st.subheader("💰 Simulation combiné")
+st.dataframe(top)
 
-    cote = 1
+st.subheader("💰 Simulation combiné")
 
-    for i in range(len(top)):
-        cote *= 1.45
+cote = 1
 
-    gain = stake * cote
+for i in range(len(top)):
+    cote *= 1.45
 
-    st.write("Cote estimée :", round(cote,2))
-    st.write("Gain potentiel :", round(gain,2),"€")
+gain = stake * cote
 
-# GRAPHIQUE
+st.write("Cote estimée :", round(cote,2))
+st.write("Gain potentiel :", round(gain,2),"€")
+
+GRAPHIQUE
+
 if menu == "Graphique IA":
 
-    st.subheader("📈 Graphique probabilités")
+st.subheader("📈 Graphique probabilités")
 
-    fig, ax = plt.subplots()
+fig, ax = plt.subplots()
 
-    ax.bar(df["Match"], df["Probabilité %"])
+ax.bar(df["Match"], df["Probabilité %"])
 
-    plt.xticks(rotation=45)
+plt.xticks(rotation=45)
 
-    st.pyplot(fig)
+st.pyplot(fig)
