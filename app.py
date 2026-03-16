@@ -6,9 +6,9 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V9", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V11", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V9")
+st.title("⚽ BAKARY AI FOOTBALL PRO V11")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
@@ -27,7 +27,8 @@ menu = st.sidebar.radio(
         "Graphique IA",
         "Top 5 Paris Sûrs",
         "Matchs Pièges",
-        "Ticket Intelligent"
+        "Ticket Intelligent",
+        "Top 3 Ultra Safe"
     ]
 )
 
@@ -79,6 +80,7 @@ def get_matches():
                 best_score = ""
                 best_prob = 0
 
+                over15 = 0
                 over25 = 0
                 btts = 0
 
@@ -97,6 +99,9 @@ def get_matches():
                         if prob > best_prob:
                             best_prob = prob
                             best_score = f"{i}-{j}"
+
+                        if i + j > 1:
+                            over15 += prob
 
                         if i + j > 2:
                             over25 += prob
@@ -117,7 +122,7 @@ def get_matches():
 
                 diff = abs(prob_home - prob_away)
 
-                if diff < 10:
+                if diff < 8 or (prob_home < 55 and prob_away < 55):
                     status = "🚨 Piège"
                 elif prob_home >= 70:
                     status = "💎 Ultra Safe"
@@ -128,6 +133,8 @@ def get_matches():
 
                 cote = round(np.random.uniform(1.4,3.0),2)
 
+                confiance = int((prob_home*0.5) + (over25*100*0.3) + (btts*100*0.2))
+
                 matches.append({
                     "Match": f"{home} vs {away}",
                     "Pronostic": prediction,
@@ -135,9 +142,11 @@ def get_matches():
                     "Home %": prob_home,
                     "Draw %": prob_draw,
                     "Away %": prob_away,
+                    "Over1.5 %": int(over15*100),
                     "Over2.5 %": int(over25*100),
                     "BTTS %": int(btts*100),
                     "Cote": cote,
+                    "Confiance": confiance,
                     "Statut": status
                 })
 
@@ -163,7 +172,9 @@ elif menu == "Graphique IA":
 
         fig, ax = plt.subplots()
 
-        ax.bar(df["Match"], df["Home %"])
+        top = df.head(10)
+
+        ax.bar(top["Match"], top["Home %"])
 
         plt.xticks(rotation=90)
 
@@ -171,26 +182,46 @@ elif menu == "Graphique IA":
 
 elif menu == "Top 5 Paris Sûrs":
 
-    if not df.empty:
+    safe = df[df["Statut"] != "🚨 Piège"].sort_values(by="Confiance", ascending=False).head(5)
 
-        safe = df[df["Statut"] != "🚨 Piège"].sort_values(by="Home %", ascending=False).head(5)
-
+    if safe.empty:
+        st.warning("Aucun pari sûr aujourd'hui")
+    else:
         st.table(safe)
 
 elif menu == "Matchs Pièges":
 
     pieges = df[df["Statut"] == "🚨 Piège"]
 
-    st.table(pieges)
+    if pieges.empty:
+        st.success("Aucun match piège détecté")
+    else:
+        st.table(pieges)
 
 elif menu == "Ticket Intelligent":
 
-    ticket = df[df["Statut"] != "🚨 Piège"].sort_values(by="Home %", ascending=False).head(3)
+    ticket = df[df["Statut"] != "🚨 Piège"].sort_values(by="Confiance", ascending=False).head(3)
 
-    st.table(ticket)
+    if ticket.empty:
+        st.warning("Pas assez de matchs sûrs")
+    else:
 
-    total = ticket["Cote"].prod()
+        st.table(ticket)
 
-    gain = mise * total
+        total = ticket["Cote"].prod()
 
-    st.success(f"Gain potentiel : {round(gain,2)}")
+        gain = mise * total
+
+        st.success(f"Gain potentiel : {round(gain,2)}")
+
+elif menu == "Top 3 Ultra Safe":
+
+    ultra = df[
+        (df["Statut"] != "🚨 Piège") &
+        (df["Over1.5 %"] > 75)
+    ].sort_values(by="Confiance", ascending=False).head(3)
+
+    if ultra.empty:
+        st.warning("Pas de match Ultra Safe aujourd'hui")
+    else:
+        st.table(ultra)
