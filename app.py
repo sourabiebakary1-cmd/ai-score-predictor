@@ -10,25 +10,38 @@ st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V7", layout="wide")
 st.title("BAKARY AI FOOTBALL PRO V7")
 st.success("IA Football professionnelle")
 
- # TA CLE API
-API_KEY = 
+# CLE API
+API_KEY =
 "289e8418878e48c598507cf2b72338f5"
 
 headers = {
-"X-Auth-Token": API_KEY
+    "X-Auth-Token": API_KEY
 }
 
-MENU
-
-st.sidebar.title("Parametres")
+# MENU
+st.sidebar.title("Paramètres")
 
 ligues = {
-"Premier League": "PL",
-"LaLiga": "PD",
-"Ligue 1": "FL1",
-"Serie A": "SA",
-"Bundesliga": "BL1"
+    "Premier League": "PL",
+    "LaLiga": "PD",
+    "Ligue 1": "FL1",
+    "Serie A": "SA",
+    "Bundesliga": "BL1"
 }
+
+league = st.sidebar.selectbox("Choisir la ligue", list(ligues.keys()))
+code = ligues[league]
+
+stake = st.sidebar.number_input("Mise (€)", min_value=1, value=100)
+
+menu = st.sidebar.radio(
+    "Navigation",
+    [
+        "Analyse IA",
+        "Top 5 paris sûrs",
+        "Graphique IA"
+    ]
+)
 
 league = st.sidebar.selectbox("Choisir la ligue", list(ligues.keys()))
 code = ligues[league]
