@@ -1,107 +1,89 @@
 import streamlit as st
 import requests
 import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO ML", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO SAFE", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO – MACHINE LEARNING")
+st.title("⚽ BAKARY AI FOOTBALL PRO – SAFE VERSION")
 
 API_KEY="289e8418878e48c598507cf2b72338f5"
 
 headers={"X-Auth-Token":API_KEY}
 
-st.sidebar.title("⚙️ Paramètres")
+st.sidebar.title("Menu")
 
 menu=st.sidebar.radio(
-"Menu",
+"Navigation",
 [
-"Entrainer IA",
-"Prédictions Matchs"
+"Matchs",
+"Top Paris"
 ]
 )
 
-league="PL"
+# CACHE POUR EVITER TROP APPELS API
+@st.cache_data(ttl=3600)
+def get_matches():
 
-# ENTRAINEMENT IA
-if menu=="Entrainer IA":
-
-    st.write("Chargement des anciens matchs...")
-
-    url="https://api.football-data.org/v4/competitions/PL/matches?status=FINISHED"
-
-    r=requests.get(url,headers=headers)
-
-    data=r.json()
-
-    rows=[]
-
-    for match in data["matches"]:
-
-        home_goals=match["score"]["fullTime"]["home"]
-        away_goals=match["score"]["fullTime"]["away"]
-
-        if home_goals is None or away_goals is None:
-            continue
-
-        result=0
-
-        if home_goals>away_goals:
-            result=1
-        elif home_goals<away_goals:
-            result=2
-
-        rows.append({
-        "home_goals":home_goals,
-        "away_goals":away_goals,
-        "result":result
-        })
-
-    df=pd.DataFrame(rows)
-
-    X=df[["home_goals","away_goals"]]
-    y=df["result"]
-
-    model=RandomForestClassifier()
-
-    model.fit(X,y)
-
-    st.success("IA entrainée avec succès")
-
-# PREDICTIONS
-elif menu=="Prédictions Matchs":
+    leagues=["PL","PD","BL1","FL1","SA"]
 
     today=datetime.utcnow()
-    future=today+timedelta(days=5)
+    future=today+timedelta(days=3)
 
     date_from=today.strftime("%Y-%m-%d")
     date_to=future.strftime("%Y-%m-%d")
 
-    url=f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={date_from}&dateTo={date_to}"
-
-    r=requests.get(url,headers=headers)
-
-    data=r.json()
-
     matches=[]
 
-    for match in data["matches"]:
+    for league in leagues:
 
-        home=match["homeTeam"]["name"]
-        away=match["awayTeam"]["name"]
+        try:
 
-        home_form=np.random.randint(0,3)
-        away_form=np.random.randint(0,3)
+            url=f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={date_from}&dateTo={date_to}"
 
-        prediction=np.random.choice(["Victoire domicile","Match nul","Victoire extérieur"])
+            r=requests.get(url,headers=headers)
 
-        matches.append({
-        "Match":f"{home} vs {away}",
-        "Prediction IA":prediction
-        })
+            if r.status_code!=200:
+                continue
 
-    df=pd.DataFrame(matches)
+            data=r.json()
 
-    st.table(df)
+            for m in data.get("matches",[]):
+
+                home=m["homeTeam"]["name"]
+                away=m["awayTeam"]["name"]
+
+                matches.append({
+                "Match":f"{home} vs {away}"
+                })
+
+        except:
+            pass
+
+    return pd.DataFrame(matches)
+
+df=get_matches()
+
+# MATCHS
+if menu=="Matchs":
+
+    if df.empty:
+
+        st.warning("Aucun match trouvé")
+
+    else:
+
+        st.dataframe(df)
+
+# TOP PARIS
+elif menu=="Top Paris":
+
+    if df.empty:
+
+        st.warning("Aucun match disponible")
+
+    else:
+
+        top=df.head(5)
+
+        st.table(top)
