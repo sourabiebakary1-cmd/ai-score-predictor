@@ -94,12 +94,14 @@ def get_matches():
 
                 diff=abs(prob_home-prob_away)
 
-                if diff<8:
-                    status="🚨 Piège"
-                elif prob_home>75:
-                    status="💎 Safe"
-                else:
-                    status="Normal"
+                if diff < 10:
+    status = "🚨 Piège"
+elif prob_home >= 72:
+    status = "💎 Ultra Safe"
+elif prob_home >= 60:
+    status = "Bon Pari"
+else:
+    status = "Risque"
 
                 cote=round(np.random.uniform(1.4,3.0),2)
 
