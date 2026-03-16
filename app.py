@@ -10,8 +10,7 @@ st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V7", layout="wide")
 st.title("BAKARY AI FOOTBALL PRO V7")
 st.success("IA Football professionnelle")
 
-TA CLE API
-
+# TA CLE API
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
 headers = {
