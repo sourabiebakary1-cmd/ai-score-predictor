@@ -7,10 +7,10 @@ import random
 
 st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V7", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V7")
-st.success("🧠 IA Football professionnelle")
+st.title("BAKARY AI FOOTBALL PRO V7")
+st.success("IA Football professionnelle")
 
-🔑 TA CLÉ API
+TA CLE API
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
@@ -20,7 +20,7 @@ headers = {
 
 MENU
 
-st.sidebar.title("⚙️ Paramètres")
+st.sidebar.title("Parametres")
 
 ligues = {
 "Premier League": "PL",
@@ -39,7 +39,7 @@ menu = st.sidebar.radio(
 "Navigation",
 [
 "Analyse IA",
-"Top 5 paris sûrs",
+"Top 5 paris surs",
 "Graphique IA"
 ]
 )
@@ -49,34 +49,35 @@ URL API
 match_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED"
 standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
 
-connexion API sécurisée
+Connexion API
 
 try:
 matches_data = requests.get(match_url, headers=headers).json()
 standings_data = requests.get(standings_url, headers=headers).json()
 except:
-st.error("❌ Erreur connexion API")
+st.error("Erreur connexion API")
 st.stop()
 
 matches = matches_data.get("matches", [])
 
 if len(matches) == 0:
-st.warning("⚠️ Aucun match trouvé")
+st.warning("Aucun match trouve")
 st.stop()
 
 try:
 table = standings_data["standings"][0]["table"]
 except:
-st.error("❌ Classement indisponible")
+st.error("Classement indisponible")
 st.stop()
 
 attack = {}
 defense = {}
 
 for team in table:
+
 try:
-name = team["team"]["name"]
-played = team["playedGames"]
+    name = team["team"]["name"]
+    played = team["playedGames"]
 
     if played == 0:
         continue
@@ -86,8 +87,6 @@ played = team["playedGames"]
 
 except:
     continue
-
-🎯 SCORE EXACT INTELLIGENT
 
 def score_prediction(home_xg, away_xg):
 
@@ -123,11 +122,9 @@ try:
     home_def = defense[home]
     away_def = defense[away]
 
-    # IA AMÉLIORÉE
     home_xg = (home_attack * 1.3 + away_def * 0.7) + 0.35
     away_xg = (away_attack * 1.1 + home_def * 0.6)
 
-    # variation IA
     home_xg += random.uniform(-0.2,0.4)
     away_xg += random.uniform(-0.2,0.4)
 
@@ -138,34 +135,31 @@ try:
 
     total = home_xg + away_xg
 
-    # PRONOSTIC
     if home_xg > away_xg + 0.4:
-        result = "🏠 Victoire domicile"
+        result = "Victoire domicile"
     elif away_xg > home_xg + 0.4:
-        result = "🚀 Victoire extérieur"
+        result = "Victoire exterieur"
     else:
-        result = "🤝 Match nul possible"
+        result = "Match nul possible"
 
     over25 = "Oui" if total > 2.5 else "Non"
 
-    # 🔎 DETECTION MATCH PIEGE
     if abs(home_attack-away_attack) < 0.15:
-        analyse = "⚠️ Match piège"
+        analyse = "Match piege"
     elif abs(home_xg-away_xg) < 0.25:
-        analyse = "⚠️ Match incertain"
+        analyse = "Match incertain"
     else:
-        analyse = "✅ Stable"
+        analyse = "Stable"
 
-    # ⚠️ MATCH A EVITER
     if prob < 8:
-        risk = "🚫 À éviter"
+        risk = "A eviter"
     else:
         risk = "OK"
 
     data.append({
         "Match": f"{home} vs {away}",
         "Score IA": score,
-        "Probabilité %": prob,
+        "Probabilite %": prob,
         "Pronostic": result,
         "Over 2.5": over25,
         "Analyse IA": analyse,
@@ -176,29 +170,25 @@ except:
     continue
 
 if len(data) == 0:
-st.warning("⚠️ Pas assez de données")
+st.warning("Pas assez de donnees")
 st.stop()
 
 df = pd.DataFrame(data)
 
-ANALYSE
-
 if menu == "Analyse IA":
 
-st.subheader("📊 Analyse des matchs")
+st.subheader("Analyse des matchs")
 st.dataframe(df)
 
-TOP PARIS
+if menu == "Top 5 paris surs":
 
-if menu == "Top 5 paris sûrs":
+st.subheader("Top 5 paris les plus surs")
 
-st.subheader("🏆 Top 5 paris les plus sûrs")
-
-top = df.sort_values("Probabilité %", ascending=False).head(5)
+top = df.sort_values("Probabilite %", ascending=False).head(5)
 
 st.dataframe(top)
 
-st.subheader("💰 Simulation combiné")
+st.subheader("Simulation combine")
 
 cote = 1
 
@@ -207,18 +197,16 @@ for i in range(len(top)):
 
 gain = stake * cote
 
-st.write("Cote estimée :", round(cote,2))
+st.write("Cote estimee :", round(cote,2))
 st.write("Gain potentiel :", round(gain,2),"€")
-
-GRAPHIQUE
 
 if menu == "Graphique IA":
 
-st.subheader("📈 Graphique probabilités")
+st.subheader("Graphique probabilites")
 
 fig, ax = plt.subplots()
 
-ax.bar(df["Match"], df["Probabilité %"])
+ax.bar(df["Match"], df["Probabilite %"])
 
 plt.xticks(rotation=45)
 
