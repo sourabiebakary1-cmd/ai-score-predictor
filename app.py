@@ -7,7 +7,7 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 import random
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V40", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V41", layout="wide")
 
 # STYLE
 st.markdown("""
@@ -28,10 +28,9 @@ color:black;
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V40 ELITE")
+st.title("⚽ BAKARY AI FOOTBALL PRO V41 ELITE")
 st.success("IA Football Analyse Professionnelle")
 
-# CLE API
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
 headers = {"X-Auth-Token": API_KEY}
@@ -74,23 +73,29 @@ future = today + timedelta(days=7)
 date_from = today.strftime("%Y-%m-%d")
 date_to = future.strftime("%Y-%m-%d")
 
+# API MATCHS
 url = f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={date_from}&dateTo={date_to}"
 
-response = requests.get(url, headers=headers)
+try:
+
+    response = requests.get(url, headers=headers)
+    data = response.json()
+
+except:
+    st.error("Erreur connexion API")
+    data = {"matches":[]}
 
 matches = []
 
-if response.status_code == 200:
-
-    data = response.json()
+if "matches" in data:
 
     for match in data["matches"]:
 
         home = match["homeTeam"]["name"]
         away = match["awayTeam"]["name"]
 
-        home_logo = match["homeTeam"]["crest"]
-        away_logo = match["awayTeam"]["crest"]
+        home_logo = match["homeTeam"].get("crest", "")
+        away_logo = match["awayTeam"].get("crest", "")
 
         # IA statistiques
         attack_home = random.uniform(1.2,2.3)
@@ -145,14 +150,15 @@ if menu == "Matchs du jour":
     st.subheader("⚽ Matchs analysés")
 
     if df.empty:
-        st.warning("Aucun match trouvé")
+        st.warning("Aucun match trouvé pour cette ligue aujourd'hui")
 
     for i,row in df.iterrows():
 
         col1,col2,col3 = st.columns([1,2,1])
 
         with col1:
-            st.image(row["LogoHome"], width=70)
+            if row["LogoHome"]:
+                st.image(row["LogoHome"], width=70)
 
         with col2:
             st.write(f"### {row['Match']}")
@@ -163,7 +169,8 @@ if menu == "Matchs du jour":
             st.write(row["Statut"])
 
         with col3:
-            st.image(row["LogoAway"], width=70)
+            if row["LogoAway"]:
+                st.image(row["LogoAway"], width=70)
 
 # ANALYSE
 elif menu == "Analyse IA":
@@ -173,37 +180,42 @@ elif menu == "Analyse IA":
 # SCORE EXACT
 elif menu == "Score Exact IA":
 
-    st.table(df[["Match","Score IA","Probabilité %"]])
+    if not df.empty:
+        st.table(df[["Match","Score IA","Probabilité %"]])
 
 # OVER UNDER
 elif menu == "Over/Under":
 
-    st.table(df[["Match","Over/Under"]])
+    if not df.empty:
+        st.table(df[["Match","Over/Under"]])
 
 # BTTS
 elif menu == "BTTS":
 
-    st.table(df[["Match","BTTS"]])
+    if not df.empty:
+        st.table(df[["Match","BTTS"]])
 
 # TOP PARIS
 elif menu == "Top Paris IA":
 
-    top = df.sort_values(by="Probabilité %", ascending=False).head(10)
-
-    st.table(top)
+    if not df.empty:
+        top = df.sort_values(by="Probabilité %", ascending=False).head(10)
+        st.table(top)
 
 # TICKET
 elif menu == "Ticket IA":
 
-    ticket = df.sort_values(by="Probabilité %", ascending=False).head(3)
+    if not df.empty:
 
-    st.table(ticket)
+        ticket = df.sort_values(by="Probabilité %", ascending=False).head(3)
 
-    total_cote = ticket["Cote"].prod()
+        st.table(ticket)
 
-    gain = mise * total_cote
+        total_cote = ticket["Cote"].prod()
 
-    st.success(f"Gain potentiel : {round(gain,2)} €")
+        gain = mise * total_cote
+
+        st.success(f"Gain potentiel : {round(gain,2)} €")
 
 # CLASSEMENT
 elif menu == "Classement":
@@ -231,10 +243,12 @@ elif menu == "Classement":
 # GRAPHIQUE
 elif menu == "Graphique IA":
 
-    fig, ax = plt.subplots()
+    if not df.empty:
 
-    ax.bar(df["Match"], df["Probabilité %"])
+        fig, ax = plt.subplots()
 
-    plt.xticks(rotation=45)
+        ax.bar(df["Match"], df["Probabilité %"])
 
-    st.pyplot(fig)
+        plt.xticks(rotation=45)
+
+        st.pyplot(fig)
