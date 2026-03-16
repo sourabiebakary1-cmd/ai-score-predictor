@@ -3,13 +3,10 @@ import requests
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import poisson
 from datetime import datetime, timedelta
-import random
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V41", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V300", layout="wide")
 
-# STYLE
 st.markdown("""
 <style>
 .stApp{
@@ -22,225 +19,213 @@ color:#00ffcc;
 }
 
 .stButton>button{
-background-color:#00ffcc;
+background:#00ffcc;
 color:black;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V41 ELITE")
+st.title("⚽ BAKARY AI FOOTBALL PRO V300 GOD LEVEL")
 st.success("IA Football Analyse Professionnelle")
 
-# API KEY
-API_KEY = "289e8418878e48c598507cf2b72338f5"
-headers = {"X-Auth-Token": API_KEY}
+API_KEY="289e8418878e48c598507cf2b72338f5"
+
+headers={"X-Auth-Token":API_KEY}
 
 # SIDEBAR
 st.sidebar.title("⚙️ Paramètres")
 
-league = st.sidebar.selectbox(
+league=st.sidebar.selectbox(
 "Ligue",
 {
-"Premier League":"PL",
-"La Liga":"PD",
-"Ligue 1":"FL1",
-"Serie A":"SA",
-"Bundesliga":"BL1"
+"Bundesliga":"BL1",
+"Ligue 1":"FL1"
 }
 )
 
-mise = st.sidebar.number_input("💰 Mise", value=100)
+mise=st.sidebar.number_input("💰 Mise",value=100)
 
-menu = st.sidebar.radio(
+menu=st.sidebar.radio(
 "Menu",
 [
 "Matchs du jour",
 "Analyse IA",
-"Score Exact IA",
-"Over/Under",
-"BTTS",
-"Top Paris IA",
-"Ticket IA",
+"Top Paris",
+"Ticket Intelligent",
 "Classement",
-"Graphique IA"
+"Graphique"
 ]
 )
 
-# DATE
-today = datetime.utcnow()
-future = today + timedelta(days=7)
+today=datetime.utcnow()
+future=today+timedelta(days=7)
 
-date_from = today.strftime("%Y-%m-%d")
-date_to = future.strftime("%Y-%m-%d")
+date_from=today.strftime("%Y-%m-%d")
+date_to=future.strftime("%Y-%m-%d")
 
-# API MATCH
-url = f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={date_from}&dateTo={date_to}"
+url=f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={date_from}&dateTo={date_to}"
 
-matches = []
+matches=[]
 
 try:
-    response = requests.get(url, headers=headers)
 
-    if response.status_code == 200:
-        data = response.json()
+    r=requests.get(url,headers=headers)
 
-        for match in data.get("matches", []):
+    if r.status_code==200:
 
-            home = match["homeTeam"]["name"]
-            away = match["awayTeam"]["name"]
+        data=r.json()
 
-            home_logo = match["homeTeam"].get("crest")
-            away_logo = match["awayTeam"].get("crest")
+        for match in data.get("matches",[]):
 
-            # IA statistiques
-            attack_home = random.uniform(1.3,2.4)
-            attack_away = random.uniform(1.1,2.2)
+            home=match["homeTeam"]["name"]
+            away=match["awayTeam"]["name"]
 
-            defense_home = random.uniform(0.9,1.4)
-            defense_away = random.uniform(0.9,1.4)
+            home_logo=match["homeTeam"].get("crest")
+            away_logo=match["awayTeam"].get("crest")
 
-            form_home = random.randint(1,5)
-            form_away = random.randint(1,5)
+            attack_home=np.random.uniform(1.5,2.6)
+            attack_away=np.random.uniform(1.2,2.3)
 
-            power_home = attack_home + form_home - defense_away
-            power_away = attack_away + form_away - defense_home
+            home_win=0
+            draw=0
+            away_win=0
 
-            prob_home = int((power_home/(power_home+power_away))*100)
+            for i in range(1000):
 
-            home_goals = np.argmax([poisson.pmf(i, attack_home) for i in range(6)])
-            away_goals = np.argmax([poisson.pmf(i, attack_away) for i in range(6)])
+                g_home=np.random.poisson(attack_home)
+                g_away=np.random.poisson(attack_away)
 
-            total_goals = home_goals + away_goals
+                if g_home>g_away:
+                    home_win+=1
+                elif g_home==g_away:
+                    draw+=1
+                else:
+                    away_win+=1
 
-            over = "Over 2.5" if total_goals > 2 else "Under 2.5"
-            btts = "Oui" if home_goals > 0 and away_goals > 0 else "Non"
+            prob_home=int(home_win/10)
+            prob_draw=int(draw/10)
+            prob_away=int(away_win/10)
 
-            if prob_home > 75:
-                status = "🟢 Très bon pari"
-            elif prob_home > 65:
-                status = "🟡 Bon pari"
+            score_home=int(np.mean(np.random.poisson(attack_home,100)))
+            score_away=int(np.mean(np.random.poisson(attack_away,100)))
+
+            total_goals=score_home+score_away
+
+            over15="Over 1.5" if total_goals>=2 else "Under 1.5"
+            over25="Over 2.5" if total_goals>=3 else "Under 2.5"
+
+            btts="Oui" if score_home>0 and score_away>0 else "Non"
+
+            if prob_home>75:
+                status="💎 PARI ULTRA SAFE"
+            elif prob_home>65:
+                status="🔥 PARI FORT"
+            elif prob_home>55:
+                status="🟡 MOYEN"
             else:
-                status = "🔴 Match piège"
+                status="⚠️ MATCH PIÈGE"
 
-            cote = round(random.uniform(1.30,2.80),2)
+            cote=round(np.random.uniform(1.3,2.5),2)
 
             matches.append({
-                "Match":f"{home} vs {away}",
-                "LogoHome":home_logo,
-                "LogoAway":away_logo,
-                "Probabilité %":prob_home,
-                "Score IA":f"{home_goals}-{away_goals}",
-                "Over/Under":over,
-                "BTTS":btts,
-                "Cote":cote,
-                "Statut":status
+            "Match":f"{home} vs {away}",
+            "LogoHome":home_logo,
+            "LogoAway":away_logo,
+            "Home %":prob_home,
+            "Draw %":prob_draw,
+            "Away %":prob_away,
+            "Score IA":f"{score_home}-{score_away}",
+            "Over1.5":over15,
+            "Over2.5":over25,
+            "BTTS":btts,
+            "Cote":cote,
+            "Statut":status
             })
 
-    else:
-        st.error("Erreur API : vérifie ta clé ou la limite API")
+except:
+    st.error("Erreur API")
 
-except Exception as e:
-    st.error("Erreur connexion API")
-
-df = pd.DataFrame(matches)
+df=pd.DataFrame(matches)
 
 # MATCHS
-if menu == "Matchs du jour":
-
-    st.subheader("⚽ Matchs analysés")
+if menu=="Matchs du jour":
 
     if df.empty:
-        st.warning("Aucun match trouvé pour cette ligue dans les 7 prochains jours")
+        st.warning("Aucun match disponible")
 
     else:
+
         for i,row in df.iterrows():
 
-            col1,col2,col3 = st.columns([1,2,1])
+            col1,col2,col3=st.columns([1,2,1])
 
             with col1:
                 if row["LogoHome"]:
-                    st.image(row["LogoHome"], width=70)
+                    st.image(row["LogoHome"],width=60)
 
             with col2:
                 st.write(f"### {row['Match']}")
-                st.write(f"Probabilité : {row['Probabilité %']}%")
+                st.write(f"Victoire domicile : {row['Home %']}%")
+                st.write(f"Nul : {row['Draw %']}%")
+                st.write(f"Victoire extérieur : {row['Away %']}%")
                 st.write(f"Score IA : {row['Score IA']}")
-                st.write(f"Over/Under : {row['Over/Under']}")
-                st.write(f"BTTS : {row['BTTS']}")
+                st.write(f"{row['Over2.5']} | BTTS : {row['BTTS']}")
                 st.write(row["Statut"])
 
             with col3:
                 if row["LogoAway"]:
-                    st.image(row["LogoAway"], width=70)
+                    st.image(row["LogoAway"],width=60)
 
-# ANALYSE
-elif menu == "Analyse IA":
+elif menu=="Analyse IA":
+
     st.dataframe(df)
 
-# SCORE EXACT
-elif menu == "Score Exact IA":
-    if not df.empty:
-        st.table(df[["Match","Score IA","Probabilité %"]])
+elif menu=="Top Paris":
 
-# OVER UNDER
-elif menu == "Over/Under":
-    if not df.empty:
-        st.table(df[["Match","Over/Under"]])
+    top=df.sort_values(by="Home %",ascending=False).head(10)
 
-# BTTS
-elif menu == "BTTS":
-    if not df.empty:
-        st.table(df[["Match","BTTS"]])
+    st.table(top)
 
-# TOP PARIS
-elif menu == "Top Paris IA":
-    if not df.empty:
-        top = df.sort_values(by="Probabilité %", ascending=False).head(10)
-        st.table(top)
+elif menu=="Ticket Intelligent":
 
-# TICKET
-elif menu == "Ticket IA":
-    if not df.empty:
-        ticket = df.sort_values(by="Probabilité %", ascending=False).head(3)
-        st.table(ticket)
+    ticket=df.sort_values(by="Home %",ascending=False).head(3)
 
-        total_cote = ticket["Cote"].prod()
-        gain = mise * total_cote
+    st.table(ticket)
 
-        st.success(f"Gain potentiel : {round(gain,2)} €")
+    total_cote=ticket["Cote"].prod()
 
-# CLASSEMENT
-elif menu == "Classement":
+    gain=mise*total_cote
 
-    table_url = f"https://api.football-data.org/v4/competitions/{league}/standings"
+    st.success(f"Gain potentiel : {round(gain,2)} €")
 
-    response = requests.get(table_url, headers=headers)
+elif menu=="Classement":
 
-    if response.status_code == 200:
+    url2=f"https://api.football-data.org/v4/competitions/{league}/standings"
 
-        standings = response.json()
+    r=requests.get(url2,headers=headers)
 
-        teams = []
+    if r.status_code==200:
 
-        for team in standings["standings"][0]["table"]:
+        data=r.json()
 
-            teams.append({
-                "Position":team["position"],
-                "Equipe":team["team"]["name"],
-                "Points":team["points"]
+        table=[]
+
+        for t in data["standings"][0]["table"]:
+
+            table.append({
+            "Position":t["position"],
+            "Equipe":t["team"]["name"],
+            "Points":t["points"]
             })
 
-        st.table(pd.DataFrame(teams))
+        st.table(pd.DataFrame(table))
 
-# GRAPHIQUE
-elif menu == "Graphique IA":
+elif menu=="Graphique":
 
-    if not df.empty:
+    fig,ax=plt.subplots()
 
-        fig, ax = plt.subplots()
+    ax.bar(df["Match"],df["Home %"])
 
-        ax.bar(df["Match"], df["Probabilité %"])
+    plt.xticks(rotation=45)
 
-        plt.xticks(rotation=45)
-
-        st.pyplot(fig)
+    st.pyplot(fig)
