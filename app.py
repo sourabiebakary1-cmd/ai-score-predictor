@@ -1,38 +1,23 @@
 import streamlit as st
 import requests
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-import random
+import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from scipy.stats import poisson
 
 st.set_page_config(page_title="BAKARY AI FOOTBALL PRO", layout="wide")
 
-# STYLE
-st.markdown("""
-<style>
-.stApp{
-background-color:#0e1117;
-color:white;
-}
-h1{
-color:#00ffcc;
-}
-</style>
-""", unsafe_allow_html=True)
+st.title("⚽ BAKARY AI FOOTBALL PRO")
+st.success("IA Analyse Football")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V16 ULTRA IA")
-st.success("IA Football Analyse Professionnelle")
-
+# TA CLE API
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
-headers = {
-"X-Auth-Token": API_KEY
-}
+headers = {"X-Auth-Token": API_KEY}
 
 # SIDEBAR
-st.sidebar.title("⚙️ Paramètres")
+st.sidebar.title("Paramètres")
 
 league = st.sidebar.selectbox(
 "Ligue",
@@ -52,24 +37,55 @@ menu = st.sidebar.radio(
 [
 "Matchs du jour",
 "Analyse IA",
-"Score Exact IA",
-"Meilleurs Paris IA",
-"Ticket Combiné IA",
+"Score Exact",
+"Over/Under",
+"BTTS",
+"Top Paris",
+"Ticket Combiné",
 "Classement",
-"Graphique IA"
+"Graphique"
 ]
 )
 
 # DATES
 today = datetime.today()
-future = today + timedelta(days=3)
+future = today + timedelta(days=5)
 
 date_from = today.strftime("%Y-%m-%d")
 date_to = future.strftime("%Y-%m-%d")
 
-# MATCHS
+# API MATCHS
 url = f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={date_from}&dateTo={date_to}"
+
 response = requests.get(url, headers=headers)
+
+# API CLASSEMENT
+table_url = f"https://api.football-data.org/v4/competitions/{league}/standings"
+
+table_response = requests.get(table_url, headers=headers)
+
+teams_stats = {}
+
+if table_response.status_code == 200:
+
+    standings = table_response.json()
+
+    for team in standings["standings"][0]["table"]:
+
+        name = team["team"]["name"]
+
+        played = team["playedGames"]
+
+        if played == 0:
+            played = 1
+
+        attack = team["goalsFor"] / played
+        defense = team["goalsAgainst"] / played
+
+        teams_stats[name] = {
+            "attack": attack,
+            "defense": defense
+        }
 
 matches = []
 
@@ -85,143 +101,136 @@ if response.status_code == 200:
         home_logo = match["homeTeam"]["crest"]
         away_logo = match["awayTeam"]["crest"]
 
-        # statistiques simulées intelligentes
-        attack_home = random.uniform(1.2,2.5)
-        attack_away = random.uniform(1.0,2.2)
+        attack_home = teams_stats.get(home, {}).get("attack", 1.4)
+        defense_home = teams_stats.get(home, {}).get("defense", 1.2)
 
-        defense_home = random.uniform(0.8,1.5)
-        defense_away = random.uniform(0.8,1.5)
+        attack_away = teams_stats.get(away, {}).get("attack", 1.2)
+        defense_away = teams_stats.get(away, {}).get("defense", 1.3)
 
-        # forme équipe
-        form_home = random.randint(2,5)
-        form_away = random.randint(1,4)
+        lambda_home = attack_home * defense_away
+        lambda_away = attack_away * defense_home
 
-        # calcul IA
-        power_home = attack_home + form_home - defense_away
-        power_away = attack_away + form_away - defense_home
+        home_goals = np.argmax([poisson.pmf(i, lambda_home) for i in range(6)])
+        away_goals = np.argmax([poisson.pmf(i, lambda_away) for i in range(6)])
 
-        prob_home = int((power_home/(power_home+power_away))*100)
+        prob_home = int((lambda_home/(lambda_home+lambda_away))*100)
 
-        # score poisson
-        home_goals = np.argmax([poisson.pmf(i, attack_home) for i in range(5)])
-        away_goals = np.argmax([poisson.pmf(i, attack_away) for i in range(5)])
+        total_goals = home_goals + away_goals
 
-        # statut
+        over = "Over 2.5" if total_goals > 2 else "Under 2.5"
+
+        btts = "Oui" if home_goals > 0 and away_goals > 0 else "Non"
+
         if prob_home > 75:
             status = "🟢 Très bon pari"
         elif prob_home > 65:
             status = "🟡 Bon pari"
         else:
-            status = "🔴 Match risqué"
+            status = "🔴 Match piège"
 
-        cote = round(random.uniform(1.30,2.80),2)
+        cote = round(1.30 + (100 - prob_home)/100, 2)
 
         matches.append({
-        "Match":f"{home} vs {away}",
-        "Home":home,
-        "Away":away,
-        "LogoHome":home_logo,
-        "LogoAway":away_logo,
-        "Probabilité %":prob_home,
-        "Score IA":f"{home_goals}-{away_goals}",
-        "Cote":cote,
-        "Statut":status
+            "Match": f"{home} vs {away}",
+            "LogoHome": home_logo,
+            "LogoAway": away_logo,
+            "Probabilité": prob_home,
+            "Score IA": f"{home_goals}-{away_goals}",
+            "Over/Under": over,
+            "BTTS": btts,
+            "Cote": cote,
+            "Statut": status
         })
 
 df = pd.DataFrame(matches)
 
-# MATCHS DU JOUR
+# MATCHS
 if menu == "Matchs du jour":
 
-    st.subheader("⚽ Matchs analysés")
+    st.subheader("Matchs analysés")
 
-    for i,row in df.iterrows():
+    if len(df) == 0:
+        st.warning("Aucun match trouvé")
 
-        col1,col2,col3 = st.columns([1,2,1])
+    for i, row in df.iterrows():
 
-        with col1:
-            st.image(row["LogoHome"], width=70)
+        c1, c2, c3 = st.columns([1,2,1])
 
-        with col2:
+        with c1:
+            st.image(row["LogoHome"], width=60)
+
+        with c2:
             st.write(f"### {row['Match']}")
-            st.write(f"Probabilité : {row['Probabilité %']}%")
-            st.write(f"Score IA : {row['Score IA']}")
+            st.write("Probabilité :", row["Probabilité"], "%")
+            st.write("Score IA :", row["Score IA"])
             st.write(row["Statut"])
 
-        with col3:
-            st.image(row["LogoAway"], width=70)
+        with c3:
+            st.image(row["LogoAway"], width=60)
 
 # ANALYSE
 elif menu == "Analyse IA":
 
-    st.subheader("📊 Analyse complète")
-
     st.dataframe(df)
 
 # SCORE EXACT
-elif menu == "Score Exact IA":
+elif menu == "Score Exact":
 
-    st.subheader("🎯 Score exact IA")
+    st.table(df[["Match","Score IA","Probabilité"]])
 
-    st.table(df[["Match","Score IA","Probabilité %"]])
+# OVER UNDER
+elif menu == "Over/Under":
 
-# MEILLEURS PARIS
-elif menu == "Meilleurs Paris IA":
+    st.table(df[["Match","Over/Under"]])
 
-    st.subheader("🔥 Meilleurs paris du jour")
+# BTTS
+elif menu == "BTTS":
 
-    best = df[df["Probabilité %"] > 70]
+    st.table(df[["Match","BTTS"]])
 
-    st.table(best)
+# TOP PARIS
+elif menu == "Top Paris":
+
+    top = df.sort_values(by="Probabilité", ascending=False).head(5)
+
+    st.table(top)
 
 # TICKET
-elif menu == "Ticket Combiné IA":
+elif menu == "Ticket Combiné":
 
-    st.subheader("🎟 Ticket combiné automatique")
-
-    ticket = df.sort_values(by="Probabilité %", ascending=False).head(3)
+    ticket = df.sort_values(by="Probabilité", ascending=False).head(3)
 
     st.table(ticket)
 
-    total_cote = ticket["Cote"].prod()
+    cote_total = ticket["Cote"].prod()
 
-    gain = mise * total_cote
+    gain = mise * cote_total
 
     st.success(f"Gain potentiel : {round(gain,2)} €")
 
 # CLASSEMENT
 elif menu == "Classement":
 
-    table_url = f"https://api.football-data.org/v4/competitions/{league}/standings"
-
-    table_response = requests.get(table_url, headers=headers)
-
     if table_response.status_code == 200:
-
-        standings = table_response.json()
 
         teams = []
 
         for team in standings["standings"][0]["table"]:
 
             teams.append({
-            "Position":team["position"],
-            "Equipe":team["team"]["name"],
-            "Points":team["points"],
-            "Buts marqués":team["goalsFor"],
-            "Buts encaissés":team["goalsAgainst"]
+                "Position": team["position"],
+                "Equipe": team["team"]["name"],
+                "Points": team["points"]
             })
 
         st.table(pd.DataFrame(teams))
 
 # GRAPHIQUE
-elif menu == "Graphique IA":
-
-    st.subheader("📈 Probabilités IA")
+elif menu == "Graphique":
 
     fig, ax = plt.subplots()
 
-    ax.bar(df["Match"], df["Probabilité %"])
+    ax.bar(df["Match"], df["Probabilité"])
 
     plt.xticks(rotation=45)
 
