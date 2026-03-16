@@ -1,15 +1,20 @@
 import streamlit as st
+import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V8", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V9", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V8")
-st.success("IA Football professionnelle - Analyse avancée")
+st.title("⚽ BAKARY AI FOOTBALL PRO V9")
+st.success("IA Football professionnelle - Matchs réels")
 
-# CLE API
+# TA CLE API
 API_KEY = "289e8418878e48c598507cf2b72338f5"
+
+headers = {
+    "X-Auth-Token": API_KEY
+}
 
 # SIDEBAR
 st.sidebar.title("Paramètres")
@@ -18,11 +23,12 @@ ligues = {
     "Premier League": "PL",
     "LaLiga": "PD",
     "Ligue 1": "FL1",
-    "Serie A": "SA",
-    "Bundesliga": "BL1"
+    "Serie A": "SA"
 }
 
 league = st.sidebar.selectbox("Choisir la ligue", list(ligues.keys()))
+code = ligues[league]
+
 stake = st.sidebar.number_input("Mise (€)", min_value=1, value=100)
 
 menu = st.sidebar.radio(
@@ -34,25 +40,25 @@ menu = st.sidebar.radio(
     ]
 )
 
-# MATCH SIMULATION
-teams = [
-    "Arsenal vs Chelsea",
-    "Real Madrid vs Betis",
-    "Inter vs Milan",
-    "PSG vs Marseille",
-    "Bayern vs Dortmund",
-    "Barcelone vs Sevilla",
-    "Juventus vs Napoli"
-]
+# RECUPERATION MATCHS API
+url = f"https://api.football-data.org/v4/competitions/{code}/matches"
 
-data = []
+response = requests.get(url, headers=headers)
 
-for t in teams:
+data = response.json()
+
+matches = []
+
+for m in data["matches"][:10]:
+
+    home = m["homeTeam"]["name"]
+    away = m["awayTeam"]["name"]
+
+    match = f"{home} vs {away}"
 
     prob = random.randint(60,90)
 
-    score_home = random.randint(0,3)
-    score_away = random.randint(0,3)
+    score = f"{random.randint(0,3)}-{random.randint(0,3)}"
 
     if prob > 75:
         statut = "✅ Match sûr"
@@ -61,14 +67,14 @@ for t in teams:
     else:
         statut = "🚨 Match piège"
 
-    data.append({
-        "Match":t,
+    matches.append({
+        "Match":match,
         "Probabilité %":prob,
-        "Score IA":f"{score_home}-{score_away}",
+        "Score IA":score,
         "Statut":statut
     })
 
-df = pd.DataFrame(data)
+df = pd.DataFrame(matches)
 
 top = df.sort_values(by="Probabilité %",ascending=False).head(5)
 
@@ -101,7 +107,7 @@ if menu == "Top Paris":
 # GRAPHIQUE
 if menu == "Graphique IA":
 
-    st.subheader("📈 Graphique Probabilités IA")
+    st.subheader("📈 Graphique Probabilités")
 
     fig, ax = plt.subplots()
 
