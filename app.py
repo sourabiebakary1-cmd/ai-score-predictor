@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V300", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V301", layout="wide")
 
 st.markdown("""
 <style>
@@ -25,7 +25,7 @@ color:black;
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V300 GOD LEVEL")
+st.title("⚽ BAKARY AI FOOTBALL PRO V301 GOD LEVEL")
 st.success("IA Football Analyse Professionnelle")
 
 API_KEY="289e8418878e48c598507cf2b72338f5"
@@ -38,8 +38,11 @@ st.sidebar.title("⚙️ Paramètres")
 league=st.sidebar.selectbox(
 "Ligue",
 {
+"Premier League":"PL",
+"La Liga":"PD",
 "Bundesliga":"BL1",
-"Ligue 1":"FL1"
+"Ligue 1":"FL1",
+"Serie A":"SA"
 }
 )
 
@@ -57,13 +60,10 @@ menu=st.sidebar.radio(
 ]
 )
 
-today=datetime.utcnow()
-future=today+timedelta(days=7)
+# DATE CORRIGÉE
+today=datetime.utcnow().strftime("%Y-%m-%d")
 
-date_from=today.strftime("%Y-%m-%d")
-date_to=future.strftime("%Y-%m-%d")
-
-url=f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={date_from}&dateTo={date_to}"
+url=f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={today}&dateTo={today}"
 
 matches=[]
 
@@ -142,8 +142,11 @@ try:
             "Statut":status
             })
 
-except:
-    st.error("Erreur API")
+    else:
+        st.error("Erreur API : problème de connexion")
+
+except Exception as e:
+    st.error(f"Erreur API : {e}")
 
 df=pd.DataFrame(matches)
 
@@ -151,7 +154,7 @@ df=pd.DataFrame(matches)
 if menu=="Matchs du jour":
 
     if df.empty:
-        st.warning("Aucun match disponible")
+        st.warning("Aucun match aujourd'hui dans cette ligue")
 
     else:
 
@@ -222,10 +225,12 @@ elif menu=="Classement":
 
 elif menu=="Graphique":
 
-    fig,ax=plt.subplots()
+    if not df.empty:
 
-    ax.bar(df["Match"],df["Home %"])
+        fig,ax=plt.subplots()
 
-    plt.xticks(rotation=45)
+        ax.bar(df["Match"],df["Home %"])
 
-    st.pyplot(fig)
+        plt.xticks(rotation=45)
+
+        st.pyplot(fig)
