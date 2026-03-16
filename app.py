@@ -2,117 +2,161 @@ import streamlit as st
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 import random
+from datetime import date
+from scipy.stats import poisson
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V9", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V12", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V9")
-st.success("IA Football professionnelle - Matchs réels")
+st.title("⚽ BAKARY AI FOOTBALL PRO V12 MASTER")
+st.success("IA Football Ultra Avancée")
 
-# TA CLE API
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
 headers = {
     "X-Auth-Token": API_KEY
 }
 
-# SIDEBAR
-st.sidebar.title("Paramètres")
+st.sidebar.title("⚙️ Paramètres")
 
-ligues = {
-    "Premier League": "PL",
-    "LaLiga": "PD",
-    "Ligue 1": "FL1",
-    "Serie A": "SA"
+league = st.sidebar.selectbox(
+"Ligue",
+{
+"Premier League":"PL",
+"La Liga":"PD",
+"Ligue 1":"FL1",
+"Serie A":"SA",
+"Bundesliga":"BL1"
 }
-
-league = st.sidebar.selectbox("Choisir la ligue", list(ligues.keys()))
-code = ligues[league]
-
-stake = st.sidebar.number_input("Mise (€)", min_value=1, value=100)
-
-menu = st.sidebar.radio(
-    "Navigation",
-    [
-        "Analyse IA",
-        "Top Paris",
-        "Graphique IA"
-    ]
 )
 
-# RECUPERATION MATCHS API
-url = f"https://api.football-data.org/v4/competitions/{code}/matches"
+mise = st.sidebar.number_input("💰 Mise", value=100)
+
+menu = st.sidebar.radio(
+"Menu",
+[
+"Analyse IA",
+"Score Exact IA",
+"Top Paris",
+"Ticket Combiné IA",
+"Classement",
+"Graphique IA"
+]
+)
+
+today = str(date.today())
+
+url = f"https://api.football-data.org/v4/competitions/{league}/matches?dateFrom={today}&dateTo={today}"
 
 response = requests.get(url, headers=headers)
 
-data = response.json()
-
 matches = []
 
-for m in data["matches"][:10]:
+if response.status_code == 200:
 
-    home = m["homeTeam"]["name"]
-    away = m["awayTeam"]["name"]
+    data = response.json()
 
-    match = f"{home} vs {away}"
+    for match in data["matches"]:
 
-    prob = random.randint(60,90)
+        home = match["homeTeam"]["name"]
+        away = match["awayTeam"]["name"]
 
-    score = f"{random.randint(0,3)}-{random.randint(0,3)}"
+        attack_home = random.uniform(1,2)
+        attack_away = random.uniform(1,2)
 
-    if prob > 75:
-        statut = "✅ Match sûr"
-    elif prob > 68:
-        statut = "⚠️ Moyen"
-    else:
-        statut = "🚨 Match piège"
+        home_goals = np.argmax([poisson.pmf(i, attack_home) for i in range(5)])
+        away_goals = np.argmax([poisson.pmf(i, attack_away) for i in range(5)])
 
-    matches.append({
-        "Match":match,
-        "Probabilité %":prob,
-        "Score IA":score,
-        "Statut":statut
-    })
+        prob = random.randint(60,90)
+
+        if prob > 80:
+            status = "✅ Match sûr"
+        elif prob > 70:
+            status = "⚠️ Moyen"
+        else:
+            status = "🚨 Match piège"
+
+        cote = round(random.uniform(1.3,2.8),2)
+
+        matches.append({
+            "Match":f"{home} vs {away}",
+            "Probabilité":prob,
+            "Score IA":f"{home_goals}-{away_goals}",
+            "Cote":cote,
+            "Statut":status
+        })
 
 df = pd.DataFrame(matches)
 
-top = df.sort_values(by="Probabilité %",ascending=False).head(5)
-
-# ANALYSE IA
+# ANALYSE
 if menu == "Analyse IA":
 
-    st.subheader("📊 Analyse IA des matchs")
+    st.subheader("📊 Analyse IA")
 
     st.dataframe(df)
 
+# SCORE EXACT
+elif menu == "Score Exact IA":
+
+    st.subheader("🎯 Score exact IA")
+
+    st.table(df[["Match","Score IA","Probabilité"]])
+
 # TOP PARIS
-if menu == "Top Paris":
+elif menu == "Top Paris":
 
-    st.subheader("🔥 Top 5 Paris les plus sûrs")
+    st.subheader("🔥 Top 5 Paris sûrs")
 
-    st.dataframe(top)
+    top = df.sort_values(by="Probabilité", ascending=False).head(5)
 
-    st.subheader("💰 Simulation combiné")
+    st.table(top)
 
-    cote = 1
+# TICKET
+elif menu == "Ticket Combiné IA":
 
-    for i in range(len(top)):
-        cote *= 1.45
+    st.subheader("🎟 Ticket combiné IA")
 
-    gain = stake * cote
+    ticket = df.sort_values(by="Probabilité", ascending=False).head(3)
 
-    st.write("Cote estimée :",round(cote,2))
-    st.write("Gain potentiel :",round(gain,2),"€")
+    st.table(ticket)
+
+    total_cote = ticket["Cote"].prod()
+
+    gain = mise * total_cote
+
+    st.success(f"Gain potentiel : {round(gain,2)}")
+
+# CLASSEMENT
+elif menu == "Classement":
+
+    table_url = f"https://api.football-data.org/v4/competitions/{league}/standings"
+
+    table_response = requests.get(table_url, headers=headers)
+
+    if table_response.status_code == 200:
+
+        standings = table_response.json()
+
+        teams = []
+
+        for team in standings["standings"][0]["table"]:
+
+            teams.append({
+                "Position":team["position"],
+                "Equipe":team["team"]["name"],
+                "Points":team["points"]
+            })
+
+        st.table(pd.DataFrame(teams))
 
 # GRAPHIQUE
-if menu == "Graphique IA":
+elif menu == "Graphique IA":
 
-    st.subheader("📈 Graphique Probabilités")
+    plt.figure()
 
-    fig, ax = plt.subplots()
-
-    ax.bar(df["Match"],df["Probabilité %"])
+    plt.bar(df["Match"], df["Probabilité"])
 
     plt.xticks(rotation=45)
 
-    st.pyplot(fig)
+    st.pyplot(plt)
