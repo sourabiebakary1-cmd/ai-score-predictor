@@ -5,61 +5,60 @@ import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO MAX", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO MAX++", layout="wide")
 
-# 🎨 STYLE FINAL PRO
+# 🎨 STYLE ULTRA PRO
 st.markdown("""
 <style>
 
-/* GLOBAL */
 html, body, [class*="css"] {
     font-size: 18px !important;
     color: white !important;
 }
 
-/* BACKGROUND */
 .stApp {
     background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
 }
 
-/* TITRE */
 h1 {
-    font-size: 30px !important;
-    color: #00ffcc;
     text-align: center;
+    color: #00ffcc;
 }
 
-/* SIDEBAR */
-section[data-testid="stSidebar"] * {
-    font-size: 16px !important;
-}
-
-/* CARTES */
+/* CARD */
 .card {
-    background: rgba(0,0,0,0.45);
+    background: rgba(0,0,0,0.5);
     padding:15px;
     border-radius:12px;
     margin-bottom:12px;
-    color: white !important;
-    font-size: 18px !important;
     border: 1px solid rgba(255,255,255,0.1);
 }
 
-/* TITRE MATCH */
-.card b {
-    font-size: 20px !important;
-    color: white !important;
+/* BADGES */
+.badge-safe {color:#00ffcc; font-weight:bold;}
+.badge-danger {color:red; font-weight:bold;}
+.badge-mid {color:orange; font-weight:bold;}
+
+/* BAR */
+.bar {
+    height:10px;
+    border-radius:10px;
+    background:#333;
+}
+.bar-fill {
+    height:10px;
+    border-radius:10px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1>⚽ BAKARY AI FOOTBALL PRO MAX 🚀🔥</h1>", unsafe_allow_html=True)
+st.markdown("<h1>⚽ BAKARY AI FOOTBALL PRO MAX++ 🚀🔥</h1>", unsafe_allow_html=True)
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
-# -------- SIDEBAR --------
+# SIDEBAR
 st.sidebar.title("⚙️ Paramètres PRO")
 mise = st.sidebar.number_input("💰 Mise", value=100)
 
@@ -72,7 +71,7 @@ menu = st.sidebar.radio("Menu", [
     "Bankroll 💰"
 ])
 
-# -------- STATS --------
+# STATS
 @st.cache_data(ttl=600)
 def get_team_stats(team_id):
     try:
@@ -108,7 +107,7 @@ def get_team_stats(team_id):
     except Exception:
         return 1.5, 1.2
 
-# -------- MATCHES --------
+# MATCHES
 @st.cache_data(ttl=300)
 def get_matches():
 
@@ -191,11 +190,11 @@ def get_matches():
                         bet = "⚠️ Risqué"
 
                     if abs(prob_home - prob_away) < 10:
-                        danger = "🚨 Piège"
+                        danger = "🚨 PIÈGE"
                     elif prob_home > 70 or prob_away > 70:
-                        danger = "💎 Ultra Safe"
+                        danger = "💎 SAFE"
                     else:
-                        danger = "⚠️ Moyen"
+                        danger = "⚠️ MOYEN"
 
                     confiance = int((prob_home + over25*100 + btts*100)/3)
 
@@ -226,51 +225,52 @@ def get_matches():
 
 df = get_matches()
 
-# -------- FILTRE --------
-if not df.empty and "Confiance" in df.columns:
-
-    df_safe = df[
-        (df["Confiance"] >= 70) &
-        (df["Danger"] != "🚨 Piège") &
-        (df["Pari"] != "⚠️ Risqué")
-    ]
-
-    if df_safe.empty:
-        df = df[
-            (df["Confiance"] >= 60) &
-            (df["Danger"] != "🚨 Piège")
-        ]
-        st.warning("⚠️ Mode secours activé")
-    else:
-        df = df_safe
-
 st.info(f"📊 Matchs disponibles : {len(df)}")
 
-# -------- UI --------
+# UI
 if df.empty:
-    st.warning("⚠️ Aucun match disponible")
+    st.warning("⚠️ Aucun match")
 else:
 
     if menu == "Analyse IA 🧠":
 
         for _, row in df.iterrows():
+
+            if "SAFE" in row["Danger"]:
+                color = "#00ffcc"
+                badge = "💎 SAFE"
+            elif "PIÈGE" in row["Danger"]:
+                color = "red"
+                badge = "🚨 PIÈGE"
+            else:
+                color = "orange"
+                badge = "⚠️ MOYEN"
+
             st.markdown(f"""
             <div class="card">
             <b>⚽ {row['Match']}</b><br><br>
-            🔥 <span style="color:#00ffcc;">{row['Pari']}</span><br>
+
+            🔥 {row['Pari']}<br>
             🎯 {row['Score']}<br><br>
-            📊 Confiance: <b style="color:yellow;">{row['Confiance']}%</b>
+
+            🏷️ <span style="color:{color}">{badge}</span><br><br>
+
+            📊 Confiance: {row['Confiance']}%
+
+            <div class="bar">
+                <div class="bar-fill" style="width:{row['Confiance']}%; background:{color};"></div>
+            </div>
             </div>
             """, unsafe_allow_html=True)
 
     elif menu == "Top Safe 💎":
-        st.table(df[df["Danger"]=="💎 Ultra Safe"])
+        st.table(df[df["Danger"]=="💎 SAFE"])
 
     elif menu == "Score Exact 🎯":
         st.table(df[["Match","Score","Confiance"]])
 
     elif menu == "Matchs Pièges 🚨":
-        st.info("Filtrés automatiquement ✅")
+        st.table(df[df["Danger"]=="🚨 PIÈGE"])
 
     elif menu == "Ticket PRO 🎟️":
 
