@@ -22,8 +22,7 @@ st.markdown("""
 st.title("⚽ BAKARY AI PRO MAX ULTIME 🧠🔥")
 
 # ================= CONFIG =================
-API_KEY = 
-"289e8418878e48c598507cf2b72338f5"
+API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
 mise = st.sidebar.number_input("💰 Mise", 1, value=100)
@@ -40,16 +39,26 @@ date_str = selected_date.strftime("%Y-%m-%d")
 def safe_request(url):
     try:
         r = requests.get(url, headers=headers, timeout=10)
+
         if r.status_code == 200:
             return r.json()
-    except:
-        return None
+
+        elif r.status_code == 403:
+            st.error("❌ Clé API invalide")
+        elif r.status_code == 429:
+            st.warning("⚠️ Limite API atteinte")
+
+    except requests.exceptions.Timeout:
+        st.warning("⚠️ Timeout API")
+    except requests.exceptions.RequestException:
+        st.warning("⚠️ Erreur connexion API")
+
     return None
 
 # ================= STATS =================
 @st.cache_data(ttl=600)
 def get_stats():
-    comps = ["CL","PL","PD","SA","BL1","FL1"]
+    comps = ["PL","PD","SA","BL1","FL1"]
     teams = {}
 
     for c in comps:
@@ -62,20 +71,20 @@ def get_stats():
                         "ga": t["goalsAgainst"]
                     }
             except:
-                pass
+                continue
     return teams
 
 # ================= MATCHS =================
 @st.cache_data(ttl=300)
 def get_matches(date):
-    comps = ["CL","PL","PD","SA","BL1","FL1"]
+    comps = ["PL","PD","SA","BL1","FL1"]
     matches = []
 
     for c in comps:
         data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/matches?dateFrom={date}&dateTo={date}")
         if data and "matches" in data:
             for m in data["matches"]:
-                if m["status"] in ["SCHEDULED","TIMED","LIVE","IN_PLAY"]:
+                if m["status"] in ["SCHEDULED","TIMED"]:
                     matches.append(m)
     return matches
 
@@ -90,12 +99,11 @@ def predict(xg1,xg2):
 
 def analyse(home,away,stats):
     try:
-        # 🔥 fallback si équipe inconnue
         h = stats.get(home, {"gf":1.5,"ga":1.5})
         a = stats.get(away, {"gf":1.5,"ga":1.5})
 
-        xg1 = max(0.6, min(3, (h["gf"]/10)-(a["ga"]/20)))
-        xg2 = max(0.6, min(3, (a["gf"]/10)-(h["ga"]/20)))
+        xg1 = max(0.8, min(3, (h["gf"]/10)-(a["ga"]/20)))
+        xg2 = max(0.8, min(3, (a["gf"]/10)-(h["ga"]/20)))
 
         scores = predict(xg1,xg2)
         total = xg1 + xg2
@@ -110,7 +118,7 @@ def analyse(home,away,stats):
 
         confiance = int(55 + diff*35)
 
-        if diff < 0.35:
+        if diff < 0.3:
             badge = "🚨 PIÈGE"
         elif confiance >= 75:
             badge = "💎 SAFE"
@@ -132,7 +140,7 @@ def analyse(home,away,stats):
 stats = get_stats()
 
 if not stats:
-    st.error("❌ API erreur (stats indisponibles)")
+    st.error("❌ API stats indisponibles")
     st.stop()
 
 matches = get_matches(date_str)
@@ -161,13 +169,12 @@ if not results:
 safe = [r for r in results if r["conf"] >= 70 and "PIÈGE" not in r["badge"]]
 moyen = [r for r in results if 60 <= r["conf"] < 70]
 
-# 🔥 SI VIDE → on affiche tout
 if not safe:
-    st.warning("⚠️ Aucun match SAFE → affichage complet")
+    st.warning("⚠️ Aucun SAFE → affichage complet")
     safe = results
 
 # ================= AFFICHAGE =================
-st.subheader(f"💎 TOP SAFE ({date_str})")
+st.subheader(f"💎 TOP 3 MATCHS ({date_str})")
 
 for m in safe[:3]:
     st.success(f"{m['match']} → {m['pick']} ({m['conf']}%)")
@@ -180,7 +187,7 @@ for m in safe:
     ⚽ {m['match']}<br><br>
     🎯 {m['score']}<br><br>
     📊 {m['pick']}<br><br>
-    🏷️ <span style="color:green">{m['badge']}</span><br><br>
+    🏷️ {m['badge']}<br><br>
     📈 {m['conf']}%
     </div>
     """, unsafe_allow_html=True)
@@ -193,7 +200,7 @@ for m in moyen:
     ⚽ {m['match']}<br><br>
     🎯 {m['score']}<br><br>
     📊 {m['pick']}<br><br>
-    🏷️ <span style="color:orange">{m['badge']}</span><br><br>
+    🏷️ {m['badge']}<br><br>
     📈 {m['conf']}%
     </div>
     """, unsafe_allow_html=True)
