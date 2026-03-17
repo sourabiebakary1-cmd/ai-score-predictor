@@ -220,7 +220,7 @@ def get_live_matches():
 
     for m in data.get("matches", []):
         try:
-            if m["status"] == "IN_PLAY":
+            if m["status"] in ["IN_PLAY", "PAUSED"]:
 
                 home = m["homeTeam"]["name"]
                 away = m["awayTeam"]["name"]
