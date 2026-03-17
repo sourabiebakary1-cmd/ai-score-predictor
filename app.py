@@ -41,7 +41,8 @@ def safe_request(url):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
-        return None
+        else:
+            return None
     except:
         return None
 
@@ -71,7 +72,7 @@ def get_all_standings():
 @st.cache_data(ttl=300)
 def get_matches():
     today = datetime.utcnow()
-    future = today + timedelta(days=3)
+    future = today + timedelta(days=5)
 
     competitions = ["CL", "PL", "PD", "SA", "BL1", "FL1"]
 
@@ -84,7 +85,7 @@ def get_matches():
         if data and "matches" in data:
             try:
                 for m in data["matches"]:
-                    if m["status"] == "SCHEDULED":
+                    if m["status"] in ["SCHEDULED", "TIMED", "LIVE", "IN_PLAY"]:
                         matches.append(m)
             except:
                 continue
@@ -143,11 +144,11 @@ stats = get_all_standings()
 matches = get_matches()
 
 if not matches:
-    st.error("❌ Aucun match réel disponible (toutes ligues)")
-    st.warning("⛔ NE PARIE PAS AUJOURD’HUI")
+    st.error("❌ Aucun match trouvé (API limitée)")
+    st.warning("⛔ Essaye plus tard ou change API")
     st.stop()
 
-st.success("📡 MATCHS RÉELS MULTI-LIGUES + CHAMPIONS LEAGUE")
+st.success("📡 MATCHS DISPONIBLES (LIVE + FUTUR)")
 
 results = []
 seen = set()
@@ -194,26 +195,18 @@ for m in results:
     </div>
     """, unsafe_allow_html=True)
 
-# ================= TOP SAFE =================
-st.subheader("🏆 TOP PARIS SÉCURISÉS")
+# ================= STRAT =================
+st.subheader("💰 STRATÉGIE")
 
 top = [m for m in results if "PIÈGE" not in m["badge"]]
 top = sorted(top, key=lambda x: x["confiance"], reverse=True)[:3]
 
-# ================= STRAT =================
-st.subheader("💰 STRATÉGIE INTELLIGENTE")
-
 if not top:
-    st.warning("⚠️ Aucun pari fiable aujourd’hui → NE PAS JOUER")
+    st.warning("⚠️ Aucun bon pari aujourd’hui")
 else:
     mise_conseillee = int(bankroll * 0.05)
-
-    cote = round(sum([m["confiance"]/100 for m in top]) + 1, 2)
-    gain = mise_conseillee * cote
 
     for m in top:
         st.success(f"{m['match']} → {m['analyse']} ({m['confiance']}%)")
 
-    st.info(f"💰 Mise conseillée: {mise_conseillee}")
-    st.success(f"Cote: {cote}")
-    st.success(f"Gain potentiel: {gain}")
+    st.info(f"💰 Mise: {mise_conseillee}")
