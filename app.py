@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="BAKARY AI FOOTBALL PRO MAX", layout="wide")
 
-# 🎨 STYLE PRO MAX
+# 🎨 STYLE FINAL PRO
 st.markdown("""
 <style>
 
@@ -24,7 +24,7 @@ html, body, [class*="css"] {
 
 /* TITRE */
 h1 {
-    font-size: 32px !important;
+    font-size: 30px !important;
     color: #00ffcc;
     text-align: center;
 }
@@ -34,18 +34,22 @@ section[data-testid="stSidebar"] * {
     font-size: 16px !important;
 }
 
-/* CARTES MATCH */
+/* CARTES */
 .card {
-    background: rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.45);
     padding:15px;
-    border-radius:10px;
-    margin-bottom:10px;
+    border-radius:12px;
+    margin-bottom:12px;
+    color: white !important;
+    font-size: 18px !important;
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
-/* COULEURS */
-.safe {color: #00ffcc;}
-.danger {color: red;}
-.moyen {color: orange;}
+/* TITRE MATCH */
+.card b {
+    font-size: 20px !important;
+    color: white !important;
+}
 
 </style>
 """, unsafe_allow_html=True)
@@ -242,15 +246,6 @@ if not df.empty and "Confiance" in df.columns:
 
 st.info(f"📊 Matchs disponibles : {len(df)}")
 
-# -------- BANKROLL --------
-def bankroll(mise, confiance):
-    if confiance > 75:
-        return mise * 0.3
-    elif confiance > 60:
-        return mise * 0.2
-    else:
-        return mise * 0.1
-
 # -------- UI --------
 if df.empty:
     st.warning("⚠️ Aucun match disponible")
@@ -259,20 +254,12 @@ else:
     if menu == "Analyse IA 🧠":
 
         for _, row in df.iterrows():
-
-            if "Safe" in row["Danger"]:
-                color = "safe"
-            elif "Piège" in row["Danger"]:
-                color = "danger"
-            else:
-                color = "moyen"
-
             st.markdown(f"""
             <div class="card">
-            <b>⚽ {row['Match']}</b><br>
-            🔥 {row['Pari']}<br>
-            🎯 {row['Score']}<br>
-            📊 Confiance: <span class="{color}">{row['Confiance']}%</span>
+            <b>⚽ {row['Match']}</b><br><br>
+            🔥 <span style="color:#00ffcc;">{row['Pari']}</span><br>
+            🎯 {row['Score']}<br><br>
+            📊 Confiance: <b style="color:yellow;">{row['Confiance']}%</b>
             </div>
             """, unsafe_allow_html=True)
 
@@ -299,4 +286,4 @@ else:
 
     elif menu == "Bankroll 💰":
         for _, row in df.head(5).iterrows():
-            st.write(f"{row['Match']} → Mise: {round(bankroll(mise, row['Confiance']),2)}")
+            st.write(f"{row['Match']} → Mise: {round(mise*0.2,2)}")
