@@ -5,285 +5,172 @@ import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO MAX++", layout="wide")
+st.set_page_config(page_title="BAKARY AI ULTIME", layout="wide")
 
-# 🎨 STYLE ULTRA PRO
+# STYLE
 st.markdown("""
 <style>
-
-html, body, [class*="css"] {
-    font-size: 18px !important;
-    color: white !important;
-}
-
-.stApp {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-}
-
-h1 {
-    text-align: center;
-    color: #00ffcc;
-}
-
-/* CARD */
-.card {
-    background: rgba(0,0,0,0.5);
-    padding:15px;
-    border-radius:12px;
-    margin-bottom:12px;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-
-/* BADGES */
-.badge-safe {color:#00ffcc; font-weight:bold;}
-.badge-danger {color:red; font-weight:bold;}
-.badge-mid {color:orange; font-weight:bold;}
-
-/* BAR */
-.bar {
-    height:10px;
-    border-radius:10px;
-    background:#333;
-}
-.bar-fill {
-    height:10px;
-    border-radius:10px;
-}
-
+html, body {font-size:18px; color:white;}
+.stApp {background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);}
+.card {background: rgba(0,0,0,0.5); padding:15px; border-radius:12px; margin-bottom:12px;}
+.bar {height:10px; background:#333; border-radius:10px;}
+img {width:40px;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1>⚽ BAKARY AI FOOTBALL PRO MAX++ 🚀🔥</h1>", unsafe_allow_html=True)
+st.title("⚽ BAKARY AI ULTIME 🚀🔥")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
-# SIDEBAR
-st.sidebar.title("⚙️ Paramètres PRO")
 mise = st.sidebar.number_input("💰 Mise", value=100)
+filtre = st.sidebar.selectbox("Filtre", ["Tous","SAFE","PIÈGE"])
 
-menu = st.sidebar.radio("Menu", [
-    "Analyse IA 🧠",
-    "Top Safe 💎",
-    "Score Exact 🎯",
-    "Matchs Pièges 🚨",
-    "Ticket PRO 🎟️",
-    "Bankroll 💰"
-])
-
-# STATS
-@st.cache_data(ttl=600)
-def get_team_stats(team_id):
+# SAFE API
+def safe_request(url, params=None):
     try:
-        url = f"https://api.football-data.org/v4/teams/{team_id}/matches"
-        r = requests.get(url, headers=headers, timeout=10)
+        r = requests.get(url, headers=headers, params=params, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except:
+        pass
+    return None
 
-        if r.status_code != 200:
-            return 1.5, 1.2
+# FORME
+def team_form(team_id):
+    data = safe_request(f"https://api.football-data.org/v4/teams/{team_id}/matches")
+    if not data:
+        return 1
 
-        data = r.json()
-        matches = data.get("matches", [])[:10]
+    matches = data.get("matches", [])[:5]
+    score = 0
 
-        gf = ga = c = 0
-
-        for m in matches:
-            if m["score"]["fullTime"]["home"] is None:
-                continue
-
-            if m["homeTeam"]["id"] == team_id:
-                gf += m["score"]["fullTime"]["home"]
-                ga += m["score"]["fullTime"]["away"]
-            else:
-                gf += m["score"]["fullTime"]["away"]
-                ga += m["score"]["fullTime"]["home"]
-
-            c += 1
-
-        if c == 0:
-            return 1.5, 1.2
-
-        return gf/c, ga/c
-
-    except Exception:
-        return 1.5, 1.2
-
-# MATCHES
-@st.cache_data(ttl=300)
-def get_matches():
-
-    leagues = ["PL","PD","BL1","SA","FL1"]
-    today = datetime.utcnow()
-    future = today + timedelta(days=5)
-
-    matches = []
-
-    for league in leagues:
+    for m in matches:
         try:
-            url = f"https://api.football-data.org/v4/competitions/{league}/matches"
-            params = {
-                "dateFrom": today.strftime("%Y-%m-%d"),
-                "dateTo": future.strftime("%Y-%m-%d")
-            }
-
-            r = requests.get(url, headers=headers, params=params, timeout=10)
-
-            if r.status_code != 200:
-                continue
-
-            for m in r.json().get("matches", []):
-
-                try:
-                    home = m["homeTeam"]["name"]
-                    away = m["awayTeam"]["name"]
-
-                    h_id = m["homeTeam"]["id"]
-                    a_id = m["awayTeam"]["id"]
-
-                    h_att, h_def = get_team_stats(h_id)
-                    a_att, a_def = get_team_stats(a_id)
-
-                    attack_home = (h_att + a_def)/2 + 0.4 + np.random.uniform(0.1,0.5)
-                    attack_away = (a_att + h_def)/2 + np.random.uniform(0.1,0.5)
-
-                    home_probs = [poisson.pmf(i, attack_home) for i in range(6)]
-                    away_probs = [poisson.pmf(i, attack_away) for i in range(6)]
-
-                    matrix = np.outer(home_probs, away_probs)
-
-                    home_win = draw = away_win = 0
-                    over25 = btts = 0
-                    top_scores = []
-
-                    for i in range(6):
-                        for j in range(6):
-                            p = matrix[i][j]
-
-                            if i > j:
-                                home_win += p
-                            elif i == j:
-                                draw += p
-                            else:
-                                away_win += p
-
-                            top_scores.append((f"{i}-{j}", p))
-
-                            if i+j > 2:
-                                over25 += p
-                            if i>0 and j>0:
-                                btts += p
-
-                    top_scores = sorted(top_scores, key=lambda x: x[1], reverse=True)[:3]
-                    scores_str = ", ".join([f"{s[0]} ({int(s[1]*100)}%)" for s in top_scores])
-
-                    prob_home = int(home_win*100)
-                    prob_away = int(away_win*100)
-
-                    if prob_home > 65:
-                        bet = "🏆 Victoire Domicile"
-                    elif prob_away > 65:
-                        bet = "🏆 Victoire Extérieur"
-                    elif over25 > 0.7:
-                        bet = "🔥 Over 2.5"
-                    elif btts > 0.65:
-                        bet = "🔥 BTTS"
-                    else:
-                        bet = "⚠️ Risqué"
-
-                    if abs(prob_home - prob_away) < 10:
-                        danger = "🚨 PIÈGE"
-                    elif prob_home > 70 or prob_away > 70:
-                        danger = "💎 SAFE"
-                    else:
-                        danger = "⚠️ MOYEN"
-
-                    confiance = int((prob_home + over25*100 + btts*100)/3)
-
-                    matches.append({
-                        "Match": f"{home} vs {away}",
-                        "Pari": bet,
-                        "Score": scores_str,
-                        "Confiance": confiance,
-                        "Danger": danger
-                    })
-
-                except Exception:
-                    continue
-
-        except Exception:
+            if m["score"]["winner"] == "HOME_TEAM" and m["homeTeam"]["id"] == team_id:
+                score += 1
+            elif m["score"]["winner"] == "AWAY_TEAM" and m["awayTeam"]["id"] == team_id:
+                score += 1
+        except:
             continue
 
-    if len(matches) == 0:
-        matches.append({
-            "Match": "⚠️ API OFFLINE",
-            "Pari": "Réessaie plus tard",
-            "Score": "-",
-            "Confiance": 0,
-            "Danger": "🚨"
-        })
+    return score / max(len(matches),1)
 
-    return pd.DataFrame(matches)
+# MATCHES
+def get_matches():
+    leagues = ["PL","PD","SA"]
+    today = datetime.utcnow()
+    future = today + timedelta(days=3)
 
-df = get_matches()
+    results = []
 
-st.info(f"📊 Matchs disponibles : {len(df)}")
+    for league in leagues:
+        data = safe_request(
+            f"https://api.football-data.org/v4/competitions/{league}/matches",
+            {"dateFrom":today.strftime("%Y-%m-%d"),"dateTo":future.strftime("%Y-%m-%d")}
+        )
 
-# UI
-if df.empty:
-    st.warning("⚠️ Aucun match")
+        if not data:
+            continue
+
+        for m in data.get("matches", []):
+
+            try:
+                home = m["homeTeam"]["name"]
+                away = m["awayTeam"]["name"]
+
+                h_id = m["homeTeam"]["id"]
+                a_id = m["awayTeam"]["id"]
+
+                form_home = team_form(h_id)
+                form_away = team_form(a_id)
+
+                # IA BOOST
+                xg_home = 1.5 + form_home + 0.3
+                xg_away = 1.2 + form_away
+
+                matrix = np.outer(
+                    [poisson.pmf(i, xg_home) for i in range(5)],
+                    [poisson.pmf(j, xg_away) for j in range(5)]
+                )
+
+                scores = []
+                for i in range(5):
+                    for j in range(5):
+                        scores.append((f"{i}-{j}", matrix[i][j]))
+
+                top_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
+                score_txt = ", ".join([f"{s[0]} ({int(s[1]*100)}%)" for s in top_scores])
+
+                confiance = int((form_home + form_away)*50)
+
+                # BADGE
+                if confiance > 70:
+                    badge = "💎 SAFE"
+                elif abs(form_home - form_away) < 0.2:
+                    badge = "🚨 PIÈGE"
+                else:
+                    badge = "⚠️ MOYEN"
+
+                if filtre == "SAFE" and badge != "💎 SAFE":
+                    continue
+                if filtre == "PIÈGE" and badge != "🚨 PIÈGE":
+                    continue
+
+                results.append({
+                    "match": f"{home} vs {away}",
+                    "score": score_txt,
+                    "confiance": confiance,
+                    "badge": badge
+                })
+
+            except:
+                continue
+
+    return results
+
+data = get_matches()
+
+# AFFICHAGE
+for m in data:
+
+    if "SAFE" in m["badge"]:
+        color = "green"
+    elif "PIÈGE" in m["badge"]:
+        color = "red"
+    else:
+        color = "orange"
+
+    st.markdown(f"""
+    <div class="card">
+    <b>⚽ {m['match']}</b><br><br>
+
+    🎯 {m['score']}<br><br>
+
+    🏷️ <span style="color:{color}">{m['badge']}</span><br><br>
+
+    📊 {m['confiance']}%
+
+    <div class="bar">
+        <div style="width:{m['confiance']}%; height:10px; background:{color}; border-radius:10px;"></div>
+    </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# TICKET
+st.subheader("🎟️ Ticket automatique")
+
+safe_matches = [m for m in data if "SAFE" in m["badge"]][:3]
+
+if safe_matches:
+    cote = round(1.5 ** len(safe_matches),2)
+    gain = mise * cote
+
+    for m in safe_matches:
+        st.write(m["match"])
+
+    st.success(f"Cote: {cote}")
+    st.success(f"Gain potentiel: {gain}")
+
 else:
-
-    if menu == "Analyse IA 🧠":
-
-        for _, row in df.iterrows():
-
-            if "SAFE" in row["Danger"]:
-                color = "#00ffcc"
-                badge = "💎 SAFE"
-            elif "PIÈGE" in row["Danger"]:
-                color = "red"
-                badge = "🚨 PIÈGE"
-            else:
-                color = "orange"
-                badge = "⚠️ MOYEN"
-
-            st.markdown(f"""
-            <div class="card">
-            <b>⚽ {row['Match']}</b><br><br>
-
-            🔥 {row['Pari']}<br>
-            🎯 {row['Score']}<br><br>
-
-            🏷️ <span style="color:{color}">{badge}</span><br><br>
-
-            📊 Confiance: {row['Confiance']}%
-
-            <div class="bar">
-                <div class="bar-fill" style="width:{row['Confiance']}%; background:{color};"></div>
-            </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    elif menu == "Top Safe 💎":
-        st.table(df[df["Danger"]=="💎 SAFE"])
-
-    elif menu == "Score Exact 🎯":
-        st.table(df[["Match","Score","Confiance"]])
-
-    elif menu == "Matchs Pièges 🚨":
-        st.table(df[df["Danger"]=="🚨 PIÈGE"])
-
-    elif menu == "Ticket PRO 🎟️":
-
-        df_sorted = df.sort_values(by="Confiance", ascending=False)
-        ticket = df_sorted.head(3)
-
-        st.table(ticket)
-
-        cote = round(1.5 ** len(ticket), 2)
-
-        st.success(f"Cote: {cote}")
-        st.success(f"Gain: {mise * cote}")
-
-    elif menu == "Bankroll 💰":
-        for _, row in df.head(5).iterrows():
-            st.write(f"{row['Match']} → Mise: {round(mise*0.2,2)}")
+    st.warning("Pas assez de matchs SAFE")
