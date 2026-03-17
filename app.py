@@ -3,6 +3,7 @@ import requests
 import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
+import time
 
 st.set_page_config(page_title="BAKARY AI PRO MAX ULTIME", layout="wide")
 
@@ -38,6 +39,7 @@ date_str = selected_date.strftime("%Y-%m-%d")
 @st.cache_data(ttl=600)
 def safe_request(url):
     try:
+        time.sleep(1)
         r = requests.get(url, headers=headers, timeout=10)
 
         if r.status_code == 200:
@@ -45,20 +47,19 @@ def safe_request(url):
 
         elif r.status_code == 403:
             st.error("❌ Clé API invalide")
-        elif r.status_code == 429:
-            st.warning("⚠️ Limite API atteinte")
 
-    except requests.exceptions.Timeout:
-        st.warning("⚠️ Timeout API")
-    except requests.exceptions.RequestException:
-        st.warning("⚠️ Erreur connexion API")
+        elif r.status_code == 429:
+            st.warning("⚠️ Limite API atteinte → attends 1 min")
+
+    except:
+        st.warning("⚠️ Erreur API")
 
     return None
 
 # ================= STATS =================
 @st.cache_data(ttl=600)
 def get_stats():
-    comps = ["PL","PD","SA","BL1","FL1"]
+    comps = ["PL","PD"]  # 🔥 réduit pour éviter blocage
     teams = {}
 
     for c in comps:
@@ -77,14 +78,14 @@ def get_stats():
 # ================= MATCHS =================
 @st.cache_data(ttl=300)
 def get_matches(date):
-    comps = ["PL","PD","SA","BL1","FL1"]
+    comps = ["PL","PD"]
     matches = []
 
     for c in comps:
         data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/matches?dateFrom={date}&dateTo={date}")
         if data and "matches" in data:
             for m in data["matches"]:
-                if m["status"] in ["SCHEDULED","TIMED"]:
+                if m["status"] in ["SCHEDULED","TIMED","LIVE","IN_PLAY"]:
                     matches.append(m)
     return matches
 
@@ -145,7 +146,6 @@ if not stats:
 
 matches = get_matches(date_str)
 
-# 🔥 AUTO DEMAIN
 if not matches:
     next_day = (selected_date + timedelta(days=1)).strftime("%Y-%m-%d")
     matches = get_matches(next_day)
@@ -165,7 +165,6 @@ if not results:
     st.warning("⚠️ Aucun match analysé")
     st.stop()
 
-# ================= FILTRE =================
 safe = [r for r in results if r["conf"] >= 70 and "PIÈGE" not in r["badge"]]
 moyen = [r for r in results if 60 <= r["conf"] < 70]
 
@@ -173,7 +172,6 @@ if not safe:
     st.warning("⚠️ Aucun SAFE → affichage complet")
     safe = results
 
-# ================= AFFICHAGE =================
 st.subheader(f"💎 TOP 3 MATCHS ({date_str})")
 
 for m in safe[:3]:
@@ -205,7 +203,6 @@ for m in moyen:
     </div>
     """, unsafe_allow_html=True)
 
-# ================= STRATEGIE =================
 st.subheader("💰 STRATÉGIE PRO")
 mise_auto = int(bankroll * 0.05)
 st.info(f"💵 Mise conseillée : {mise_auto}")
