@@ -7,13 +7,13 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="BAKARY AI FOOTBALL PRO MAX", layout="wide")
 
-# 🎨 STYLE PRO MAX MOBILE
+# 🎨 STYLE PRO MAX
 st.markdown("""
 <style>
 
 /* GLOBAL */
 html, body, [class*="css"] {
-    font-size: 20px !important;
+    font-size: 18px !important;
     color: white !important;
 }
 
@@ -24,35 +24,28 @@ html, body, [class*="css"] {
 
 /* TITRE */
 h1 {
-    font-size: 38px !important;
+    font-size: 32px !important;
     color: #00ffcc;
     text-align: center;
 }
 
 /* SIDEBAR */
 section[data-testid="stSidebar"] * {
-    font-size: 18px !important;
+    font-size: 16px !important;
 }
 
-/* TABLE */
-.stDataFrame, .stTable {
-    font-size: 18px !important;
+/* CARTES MATCH */
+.card {
+    background: rgba(255,255,255,0.05);
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:10px;
 }
 
-/* BOUTONS */
-.stButton>button {
-    font-size: 18px;
-    height: 55px;
-    width: 100%;
-    border-radius: 10px;
-}
-
-/* ALERTES */
-div[data-testid="stAlert"] {
-    font-size: 18px !important;
-    padding: 15px;
-    border-radius: 10px;
-}
+/* COULEURS */
+.safe {color: #00ffcc;}
+.danger {color: red;}
+.moyen {color: orange;}
 
 </style>
 """, unsafe_allow_html=True)
@@ -229,7 +222,7 @@ def get_matches():
 
 df = get_matches()
 
-# FILTRE
+# -------- FILTRE --------
 if not df.empty and "Confiance" in df.columns:
 
     df_safe = df[
@@ -248,7 +241,6 @@ if not df.empty and "Confiance" in df.columns:
         df = df_safe
 
 st.info(f"📊 Matchs disponibles : {len(df)}")
-st.markdown("### 📊 Résultats IA")
 
 # -------- BANKROLL --------
 def bankroll(mise, confiance):
@@ -265,7 +257,24 @@ if df.empty:
 else:
 
     if menu == "Analyse IA 🧠":
-        st.dataframe(df, use_container_width=True)
+
+        for _, row in df.iterrows():
+
+            if "Safe" in row["Danger"]:
+                color = "safe"
+            elif "Piège" in row["Danger"]:
+                color = "danger"
+            else:
+                color = "moyen"
+
+            st.markdown(f"""
+            <div class="card">
+            <b>⚽ {row['Match']}</b><br>
+            🔥 {row['Pari']}<br>
+            🎯 {row['Score']}<br>
+            📊 Confiance: <span class="{color}">{row['Confiance']}%</span>
+            </div>
+            """, unsafe_allow_html=True)
 
     elif menu == "Top Safe 💎":
         st.table(df[df["Danger"]=="💎 Ultra Safe"])
@@ -279,29 +288,11 @@ else:
     elif menu == "Ticket PRO 🎟️":
 
         df_sorted = df.sort_values(by="Confiance", ascending=False)
-
-        ticket = df_sorted[
-            (df_sorted["Danger"] == "💎 Ultra Safe") |
-            (df_sorted["Pari"].isin(["🔥 Over 2.5", "🔥 BTTS"]))
-        ].head(3)
-
-        if ticket.shape[0] < 3:
-            ticket = df_sorted.head(3)
+        ticket = df_sorted.head(3)
 
         st.table(ticket)
 
-        cote = 1
-        for _, row in ticket.iterrows():
-            if "Victoire" in row["Pari"]:
-                cote *= 1.6
-            elif "Over" in row["Pari"]:
-                cote *= 1.5
-            elif "BTTS" in row["Pari"]:
-                cote *= 1.4
-            else:
-                cote *= 1.3
-
-        cote = round(cote, 2)
+        cote = round(1.5 ** len(ticket), 2)
 
         st.success(f"Cote: {cote}")
         st.success(f"Gain: {mise * cote}")
