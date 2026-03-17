@@ -208,3 +208,63 @@ if safe_matches:
 
 else:
     st.warning("Pas assez de matchs SAFE")
+st.subheader("📡 MATCHS LIVE")
+
+def get_live_matches():
+    data = safe_request("https://api.football-data.org/v4/matches")
+
+    live_list = []
+
+    if not data:
+        return live_list
+
+    for m in data.get("matches", []):
+        try:
+            if m["status"] == "IN_PLAY":
+
+                home = m["homeTeam"]["name"]
+                away = m["awayTeam"]["name"]
+
+                minute = m["minute"] if "minute" in m else 0
+
+                score_home = m["score"]["fullTime"]["home"] or 0
+                score_away = m["score"]["fullTime"]["away"] or 0
+
+                # 🔥 IA LIVE
+                total_goals = score_home + score_away
+
+                if minute > 60 and total_goals < 2:
+                    prediction = "⚽ BUT BIENTÔT"
+                    color = "orange"
+                elif total_goals >= 2:
+                    prediction = "🔥 OVER 2.5"
+                    color = "green"
+                else:
+                    prediction = "⚠️ CALME"
+                    color = "red"
+
+                live_list.append({
+                    "match": f"{home} vs {away}",
+                    "score": f"{score_home} - {score_away}",
+                    "minute": minute,
+                    "prediction": prediction,
+                    "color": color
+                })
+
+        except:
+            continue
+
+    return live_list
+
+
+live_data = get_live_matches()
+
+for m in live_data:
+    st.markdown(f"""
+    <div class="card">
+    ⚽ {m['match']}<br><br>
+    ⏱️ {m['minute']}'<br><br>
+    📊 {m['score']}<br><br>
+    <b style="color:{m['color']}">{m['prediction']}</b>
+    </div>
+    """, unsafe_allow_html=True)
