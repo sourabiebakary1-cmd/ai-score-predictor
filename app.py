@@ -28,6 +28,16 @@ headers = {"X-Auth-Token": API_KEY}
 mise = st.sidebar.number_input("💰 Mise", 1, value=100)
 bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
 
+# ================= CHOIX DATE =================
+choix = st.sidebar.selectbox("📅 Choisir la date", ["Aujourd'hui", "Demain"])
+
+if choix == "Aujourd'hui":
+    selected_date = datetime.utcnow()
+else:
+    selected_date = datetime.utcnow() + timedelta(days=1)
+
+date_str = selected_date.strftime("%Y-%m-%d")
+
 # ================= SAFE API =================
 @st.cache_data(ttl=600)
 def safe_request(url):
@@ -59,15 +69,12 @@ def get_stats():
     return teams
 
 @st.cache_data(ttl=300)
-def get_matches():
-    today = datetime.utcnow()
-    future = today + timedelta(days=5)
-
+def get_matches(date):
     comps = ["CL","PL","PD","SA","BL1","FL1"]
     matches = []
 
     for c in comps:
-        data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/matches?dateFrom={today.strftime('%Y-%m-%d')}&dateTo={future.strftime('%Y-%m-%d')}")
+        data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/matches?dateFrom={date}&dateTo={date}")
         if data and "matches" in data:
             for m in data["matches"]:
                 if m["status"] in ["SCHEDULED","TIMED","LIVE","IN_PLAY"]:
@@ -99,7 +106,6 @@ def analyse(home,away,stats):
     total = xg1+xg2
     diff = abs(xg1-xg2)
 
-    # ANALYSE
     if total > 2.7:
         pick = "🔥 OVER 2.5"
     elif xg1 > xg2:
@@ -107,10 +113,8 @@ def analyse(home,away,stats):
     else:
         pick = "✈️ AWAY"
 
-    # CONFIANCE
     confiance = int(55 + diff*35)
 
-    # ANTI PIÈGE
     if diff < 0.35:
         badge = "🚨 PIÈGE"
     elif confiance >= 75:
@@ -128,10 +132,10 @@ def analyse(home,away,stats):
 
 # ================= RUN =================
 stats = get_stats()
-matches = get_matches()
+matches = get_matches(date_str)
 
 if not matches:
-    st.error("❌ Aucun match")
+    st.error("❌ Aucun match pour cette date")
     st.stop()
 
 results = []
@@ -144,13 +148,13 @@ for m in matches:
         pass
 
 # ================= FILTRE =================
-filtered = [r for r in results if not "PIÈGE" in r["badge"] and r["conf"] >= 70]
+filtered = [r for r in results if "PIÈGE" not in r["badge"] and r["conf"] >= 70]
 
 # ================= TOP 3 =================
 top = sorted(filtered, key=lambda x:x["conf"], reverse=True)[:3]
 
 # ================= AFFICHAGE =================
-st.subheader("💎 TOP 3 ULTRA SAFE")
+st.subheader(f"💎 TOP 3 ULTRA SAFE ({date_str})")
 
 for m in top:
     st.success(f"{m['match']} → {m['pick']} ({m['conf']}%)")
