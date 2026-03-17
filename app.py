@@ -7,28 +7,63 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="BAKARY AI FOOTBALL PRO MAX", layout="wide")
 
-# 🎨 STYLE
+# 🎨 STYLE PRO MAX MOBILE
 st.markdown("""
 <style>
+
+/* GLOBAL */
+html, body, [class*="css"] {
+    font-size: 20px !important;
+    color: white !important;
+}
+
+/* BACKGROUND */
 .stApp {
     background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    color: white;
 }
+
+/* TITRE */
 h1 {
+    font-size: 38px !important;
     color: #00ffcc;
     text-align: center;
 }
+
+/* SIDEBAR */
+section[data-testid="stSidebar"] * {
+    font-size: 18px !important;
+}
+
+/* TABLE */
+.stDataFrame, .stTable {
+    font-size: 18px !important;
+}
+
+/* BOUTONS */
+.stButton>button {
+    font-size: 18px;
+    height: 55px;
+    width: 100%;
+    border-radius: 10px;
+}
+
+/* ALERTES */
+div[data-testid="stAlert"] {
+    font-size: 18px !important;
+    padding: 15px;
+    border-radius: 10px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI FOOTBALL PRO MAX 🚀🔥")
+st.markdown("<h1>⚽ BAKARY AI FOOTBALL PRO MAX 🚀🔥</h1>", unsafe_allow_html=True)
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
 # -------- SIDEBAR --------
 st.sidebar.title("⚙️ Paramètres PRO")
-
 mise = st.sidebar.number_input("💰 Mise", value=100)
 
 menu = st.sidebar.radio("Menu", [
@@ -73,7 +108,7 @@ def get_team_stats(team_id):
 
         return gf/c, ga/c
 
-    except:
+    except Exception:
         return 1.5, 1.2
 
 # -------- MATCHES --------
@@ -111,7 +146,6 @@ def get_matches():
                     h_att, h_def = get_team_stats(h_id)
                     a_att, a_def = get_team_stats(a_id)
 
-                    # 🔥 BOOST
                     attack_home = (h_att + a_def)/2 + 0.4 + np.random.uniform(0.1,0.5)
                     attack_away = (a_att + h_def)/2 + np.random.uniform(0.1,0.5)
 
@@ -176,10 +210,10 @@ def get_matches():
                         "Danger": danger
                     })
 
-                except:
+                except Exception:
                     continue
 
-        except:
+        except Exception:
             continue
 
     if len(matches) == 0:
@@ -195,7 +229,7 @@ def get_matches():
 
 df = get_matches()
 
-# 🔥 FILTRE ELITE + MODE SECOURS
+# FILTRE
 if not df.empty and "Confiance" in df.columns:
 
     df_safe = df[
@@ -213,8 +247,8 @@ if not df.empty and "Confiance" in df.columns:
     else:
         df = df_safe
 
-# 📊 INFO MATCHS
 st.info(f"📊 Matchs disponibles : {len(df)}")
+st.markdown("### 📊 Résultats IA")
 
 # -------- BANKROLL --------
 def bankroll(mise, confiance):
@@ -231,7 +265,7 @@ if df.empty:
 else:
 
     if menu == "Analyse IA 🧠":
-        st.dataframe(df)
+        st.dataframe(df, use_container_width=True)
 
     elif menu == "Top Safe 💎":
         st.table(df[df["Danger"]=="💎 Ultra Safe"])
