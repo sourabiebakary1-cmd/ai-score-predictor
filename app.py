@@ -3,9 +3,8 @@ import requests
 import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
-import random
 
-st.set_page_config(page_title="BAKARY AI DIEU FINAL V2", layout="wide")
+st.set_page_config(page_title="BAKARY AI DIEU FINAL V3", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
@@ -26,7 +25,7 @@ html, body {font-size:20px; color:white;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI DIEU FINAL V2 🧠🔥</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI DIEU FINAL V3 🧠🔥</h1>", unsafe_allow_html=True)
 
 # ================= CONFIG =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
@@ -42,9 +41,8 @@ def safe_request(url):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
-        else:
-            return None
-    except Exception as e:
+        return None
+    except:
         return None
 
 # ================= STANDINGS =================
@@ -53,36 +51,39 @@ def get_standings():
     data = safe_request("https://api.football-data.org/v4/competitions/PL/standings")
     teams = {}
 
-    try:
-        for t in data["standings"][0]["table"]:
-            teams[t["team"]["name"]] = {
-                "gf": t["goalsFor"],
-                "ga": t["goalsAgainst"]
-            }
-    except:
-        pass
+    if data and "standings" in data:
+        try:
+            for t in data["standings"][0]["table"]:
+                teams[t["team"]["name"]] = {
+                    "gf": t["goalsFor"],
+                    "ga": t["goalsAgainst"]
+                }
+        except:
+            pass
 
     return teams
 
-# ================= MATCHS =================
+# ================= MATCHS RÉELS =================
 @st.cache_data(ttl=300)
 def get_matches():
     today = datetime.utcnow()
-    future = today + timedelta(days=3)
+    future = today + timedelta(days=2)
 
-    url = f"https://api.football-data.org/v4/matches?dateFrom={today.strftime('%Y-%m-%d')}&dateTo={future.strftime('%Y-%m-%d')}"
+    url = f"https://api.football-data.org/v4/competitions/PL/matches?dateFrom={today.strftime('%Y-%m-%d')}&dateTo={future.strftime('%Y-%m-%d')}"
+    
     data = safe_request(url)
 
     matches = []
 
-    try:
-        for m in data["matches"]:
-            if m["status"] == "SCHEDULED":
-                matches.append(m)
-    except:
-        pass
+    if data and "matches" in data:
+        try:
+            for m in data["matches"]:
+                if m["status"] == "SCHEDULED":
+                    matches.append(m)
+        except:
+            pass
 
-    return matches[:10]
+    return matches
 
 # ================= IA =================
 def predict_score(xg_home, xg_away):
@@ -101,8 +102,7 @@ def analyse(home, away, stats):
             xg_home = (h["gf"]/12) - (a["ga"]/25)
             xg_away = (a["gf"]/12) - (h["ga"]/25)
         else:
-            xg_home = random.uniform(1.0,2.2)
-            xg_away = random.uniform(0.8,2.0)
+            return None
 
         xg_home = max(0.6, min(3, xg_home))
         xg_away = max(0.6, min(3, xg_away))
@@ -132,35 +132,18 @@ def analyse(home, away, stats):
     except:
         return None
 
-# ================= FAKE MATCHS =================
-def fake_matches():
-    teams = ["Real Madrid","Man City","Barcelona","Liverpool","Bayern","PSG"]
-    matches = []
-    for _ in range(6):
-        h = random.choice(teams)
-        a = random.choice(teams)
-        if h != a:
-            matches.append({"homeTeam":{"name":h},"awayTeam":{"name":a}})
-    return matches
-
 # ================= LOGIQUE =================
 stats = get_standings()
 matches = get_matches()
 
-mode = "RÉEL"
-
 if not matches:
-    st.warning("⚠️ API OFF → MODE IA ACTIVÉ")
-    matches = fake_matches()
-    mode = "IA"
+    st.error("❌ Aucun match réel disponible aujourd’hui")
+    st.warning("⛔ NE PARIE PAS AUJOURD’HUI")
+    st.stop()
 
-if mode == "RÉEL":
-    st.success("📡 DONNÉES RÉELLES")
-else:
-    st.error("🤖 MODE IA (SIMULATION)")
+st.success("📡 MATCHS RÉELS DISPONIBLES")
 
 results = []
-
 seen = set()
 
 for m in matches:
@@ -211,9 +194,6 @@ st.subheader("🏆 TOP PARIS SÉCURISÉS")
 top = [m for m in results if "PIÈGE" not in m["badge"]]
 top = sorted(top, key=lambda x: x["confiance"], reverse=True)[:3]
 
-for m in top:
-    st.success(f"{m['match']} → {m['analyse']} ({m['confiance']}%)")
-
 # ================= STRAT =================
 st.subheader("💰 STRATÉGIE INTELLIGENTE")
 
@@ -226,7 +206,7 @@ else:
     gain = mise_conseillee * cote
 
     for m in top:
-        st.write("✔️", m["match"], "→", m["analyse"])
+        st.success(f"{m['match']} → {m['analyse']} ({m['confiance']}%)")
 
     st.info(f"💰 Mise conseillée: {mise_conseillee}")
     st.success(f"Cote: {cote}")
