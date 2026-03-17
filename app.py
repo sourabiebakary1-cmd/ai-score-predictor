@@ -1,11 +1,10 @@
 import streamlit as st
 import requests
-import pandas as pd
 import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="BAKARY AI ULTIME", layout="wide")
+st.set_page_config(page_title="BAKARY AI DIEU", layout="wide")
 
 # STYLE
 st.markdown("""
@@ -14,11 +13,10 @@ html, body {font-size:18px; color:white;}
 .stApp {background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);}
 .card {background: rgba(0,0,0,0.5); padding:15px; border-radius:12px; margin-bottom:12px;}
 .bar {height:10px; background:#333; border-radius:10px;}
-img {width:40px;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI ULTIME 🚀🔥")
+st.title("⚽ BAKARY AI DIEU 🧠🔥")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
@@ -36,25 +34,52 @@ def safe_request(url, params=None):
         pass
     return None
 
-# FORME
-def team_form(team_id):
+# FORME + FORCE
+def team_strength(team_id):
     data = safe_request(f"https://api.football-data.org/v4/teams/{team_id}/matches")
     if not data:
-        return 1
+        return 1,1
 
-    matches = data.get("matches", [])[:5]
-    score = 0
+    matches = data.get("matches", [])[:10]
+
+    goals_for = 0
+    goals_against = 0
+    points = 0
+    count = 0
 
     for m in matches:
         try:
-            if m["score"]["winner"] == "HOME_TEAM" and m["homeTeam"]["id"] == team_id:
-                score += 1
-            elif m["score"]["winner"] == "AWAY_TEAM" and m["awayTeam"]["id"] == team_id:
-                score += 1
+            if m["score"]["fullTime"]["home"] is None:
+                continue
+
+            if m["homeTeam"]["id"] == team_id:
+                gf = m["score"]["fullTime"]["home"]
+                ga = m["score"]["fullTime"]["away"]
+            else:
+                gf = m["score"]["fullTime"]["away"]
+                ga = m["score"]["fullTime"]["home"]
+
+            goals_for += gf
+            goals_against += ga
+
+            if gf > ga:
+                points += 3
+            elif gf == ga:
+                points += 1
+
+            count += 1
+
         except:
             continue
 
-    return score / max(len(matches),1)
+    if count == 0:
+        return 1,1
+
+    attack = goals_for / count
+    defense = goals_against / count
+    form = points / (count*3)
+
+    return attack + form, defense
 
 # MATCHES
 def get_matches():
@@ -82,12 +107,12 @@ def get_matches():
                 h_id = m["homeTeam"]["id"]
                 a_id = m["awayTeam"]["id"]
 
-                form_home = team_form(h_id)
-                form_away = team_form(a_id)
+                att_h, def_h = team_strength(h_id)
+                att_a, def_a = team_strength(a_id)
 
-                # IA BOOST
-                xg_home = 1.5 + form_home + 0.3
-                xg_away = 1.2 + form_away
+                # IA MULTI FACTEURS
+                xg_home = (att_h + def_a)/2 + 0.5
+                xg_away = (att_a + def_h)/2
 
                 matrix = np.outer(
                     [poisson.pmf(i, xg_home) for i in range(5)],
@@ -102,12 +127,19 @@ def get_matches():
                 top_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
                 score_txt = ", ".join([f"{s[0]} ({int(s[1]*100)}%)" for s in top_scores])
 
-                confiance = int((form_home + form_away)*50)
+                # CONFIANCE IA
+                avantage = xg_home - xg_away
+                confiance = int(60 + (avantage * 20))
+
+                if confiance > 85:
+                    confiance = 85
+                if confiance < 40:
+                    confiance = 40
 
                 # BADGE
-                if confiance > 70:
+                if confiance >= 75:
                     badge = "💎 SAFE"
-                elif abs(form_home - form_away) < 0.2:
+                elif abs(avantage) < 0.3:
                     badge = "🚨 PIÈGE"
                 else:
                     badge = "⚠️ MOYEN"
@@ -157,18 +189,20 @@ for m in data:
     </div>
     """, unsafe_allow_html=True)
 
-# TICKET
-st.subheader("🎟️ Ticket automatique")
+# 💰 BANKROLL INTELLIGENTE
+st.subheader("💰 Gestion Bankroll")
 
 safe_matches = [m for m in data if "SAFE" in m["badge"]][:3]
 
 if safe_matches:
+    mise_safe = mise * 0.3
     cote = round(1.5 ** len(safe_matches),2)
-    gain = mise * cote
+    gain = mise_safe * cote
 
     for m in safe_matches:
         st.write(m["match"])
 
+    st.success(f"Mise conseillée: {mise_safe}")
     st.success(f"Cote: {cote}")
     st.success(f"Gain potentiel: {gain}")
 
