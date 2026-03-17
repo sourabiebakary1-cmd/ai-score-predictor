@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="BAKARY AI DIEU FINAL V3", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX FINAL", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
@@ -25,7 +25,7 @@ html, body {font-size:20px; color:white;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI DIEU FINAL V3 🧠🔥</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX FINAL 🧠🔥</h1>", unsafe_allow_html=True)
 
 # ================= CONFIG =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
@@ -45,43 +45,49 @@ def safe_request(url):
     except:
         return None
 
-# ================= STANDINGS =================
+# ================= STANDINGS MULTI =================
 @st.cache_data(ttl=600)
-def get_standings():
-    data = safe_request("https://api.football-data.org/v4/competitions/PL/standings")
+def get_all_standings():
+    competitions = ["CL", "PL", "PD", "SA", "BL1", "FL1"]
     teams = {}
 
-    if data and "standings" in data:
-        try:
-            for t in data["standings"][0]["table"]:
-                teams[t["team"]["name"]] = {
-                    "gf": t["goalsFor"],
-                    "ga": t["goalsAgainst"]
-                }
-        except:
-            pass
+    for comp in competitions:
+        url = f"https://api.football-data.org/v4/competitions/{comp}/standings"
+        data = safe_request(url)
+
+        if data and "standings" in data:
+            try:
+                for t in data["standings"][0]["table"]:
+                    teams[t["team"]["name"]] = {
+                        "gf": t["goalsFor"],
+                        "ga": t["goalsAgainst"]
+                    }
+            except:
+                continue
 
     return teams
 
-# ================= MATCHS RÉELS =================
+# ================= MATCHS MULTI =================
 @st.cache_data(ttl=300)
 def get_matches():
     today = datetime.utcnow()
-    future = today + timedelta(days=2)
+    future = today + timedelta(days=3)
 
-    url = f"https://api.football-data.org/v4/competitions/PL/matches?dateFrom={today.strftime('%Y-%m-%d')}&dateTo={future.strftime('%Y-%m-%d')}"
-    
-    data = safe_request(url)
+    competitions = ["CL", "PL", "PD", "SA", "BL1", "FL1"]
 
     matches = []
 
-    if data and "matches" in data:
-        try:
-            for m in data["matches"]:
-                if m["status"] == "SCHEDULED":
-                    matches.append(m)
-        except:
-            pass
+    for comp in competitions:
+        url = f"https://api.football-data.org/v4/competitions/{comp}/matches?dateFrom={today.strftime('%Y-%m-%d')}&dateTo={future.strftime('%Y-%m-%d')}"
+        data = safe_request(url)
+
+        if data and "matches" in data:
+            try:
+                for m in data["matches"]:
+                    if m["status"] == "SCHEDULED":
+                        matches.append(m)
+            except:
+                continue
 
     return matches
 
@@ -133,15 +139,15 @@ def analyse(home, away, stats):
         return None
 
 # ================= LOGIQUE =================
-stats = get_standings()
+stats = get_all_standings()
 matches = get_matches()
 
 if not matches:
-    st.error("❌ Aucun match réel disponible aujourd’hui")
+    st.error("❌ Aucun match réel disponible (toutes ligues)")
     st.warning("⛔ NE PARIE PAS AUJOURD’HUI")
     st.stop()
 
-st.success("📡 MATCHS RÉELS DISPONIBLES")
+st.success("📡 MATCHS RÉELS MULTI-LIGUES + CHAMPIONS LEAGUE")
 
 results = []
 seen = set()
@@ -168,7 +174,7 @@ for m in matches:
         continue
 
 if not results:
-    st.error("❌ Aucun match exploitable")
+    st.error("❌ Aucun match exploitable IA")
     st.stop()
 
 # ================= AFFICHAGE =================
