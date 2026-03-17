@@ -5,7 +5,7 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 import random
 
-st.set_page_config(page_title="BAKARY AI DIEU FINAL", layout="wide")
+st.set_page_config(page_title="BAKARY AI DIEU FINAL V2", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
@@ -13,7 +13,7 @@ st.markdown("""
 html, body {font-size:20px; color:white;}
 .stApp {background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);}
 .card {
-    background: rgba(0,0,0,0.85);
+    background: rgba(0,0,0,0.9);
     padding:20px;
     border-radius:18px;
     margin-bottom:18px;
@@ -26,13 +26,14 @@ html, body {font-size:20px; color:white;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI DIEU FINAL 🧠🔥</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI DIEU FINAL V2 🧠🔥</h1>", unsafe_allow_html=True)
 
 # ================= CONFIG =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
 mise = st.sidebar.number_input("💰 Mise", min_value=1, value=100)
+bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
 
 # ================= SAFE REQUEST =================
 @st.cache_data(ttl=600)
@@ -41,22 +42,26 @@ def safe_request(url):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
-        return None
-    except:
+        else:
+            return None
+    except Exception as e:
         return None
 
 # ================= STANDINGS =================
 @st.cache_data(ttl=600)
 def get_standings():
     data = safe_request("https://api.football-data.org/v4/competitions/PL/standings")
-    
     teams = {}
-    if data and "standings" in data:
+
+    try:
         for t in data["standings"][0]["table"]:
             teams[t["team"]["name"]] = {
                 "gf": t["goalsFor"],
                 "ga": t["goalsAgainst"]
             }
+    except:
+        pass
+
     return teams
 
 # ================= MATCHS =================
@@ -68,10 +73,16 @@ def get_matches():
     url = f"https://api.football-data.org/v4/matches?dateFrom={today.strftime('%Y-%m-%d')}&dateTo={future.strftime('%Y-%m-%d')}"
     data = safe_request(url)
 
-    if not data or "matches" not in data:
-        return []
+    matches = []
 
-    return data["matches"][:10]
+    try:
+        for m in data["matches"]:
+            if m["status"] == "SCHEDULED":
+                matches.append(m)
+    except:
+        pass
+
+    return matches[:10]
 
 # ================= IA =================
 def predict_score(xg_home, xg_away):
@@ -87,14 +98,14 @@ def analyse(home, away, stats):
         if home in stats and away in stats:
             h = stats[home]
             a = stats[away]
-            xg_home = (h["gf"]/10) - (a["ga"]/20)
-            xg_away = (a["gf"]/10) - (h["ga"]/20)
+            xg_home = (h["gf"]/12) - (a["ga"]/25)
+            xg_away = (a["gf"]/12) - (h["ga"]/25)
         else:
-            xg_home = random.uniform(1.2,2.2)
+            xg_home = random.uniform(1.0,2.2)
             xg_away = random.uniform(0.8,2.0)
 
-        xg_home = max(0.5, min(3, xg_home))
-        xg_away = max(0.5, min(3, xg_away))
+        xg_home = max(0.6, min(3, xg_home))
+        xg_away = max(0.6, min(3, xg_away))
 
         scores = predict_score(xg_home, xg_away)
         total = xg_home + xg_away
@@ -107,9 +118,9 @@ def analyse(home, away, stats):
             analyse = "✈️ Victoire Extérieur"
 
         diff = abs(xg_home - xg_away)
-        confiance = int(60 + diff*25)
+        confiance = int(55 + diff * 30)
 
-        badge = "🚨 PIÈGE" if diff < 0.3 else "💎 SAFE" if confiance > 75 else "⚠️ MOYEN"
+        badge = "🚨 PIÈGE" if diff < 0.35 else "💎 SAFE" if confiance >= 75 else "⚠️ MOYEN"
 
         return {
             "score": ", ".join([s[0] for s in scores]),
@@ -117,14 +128,20 @@ def analyse(home, away, stats):
             "confiance": max(50, min(90, confiance)),
             "badge": badge
         }
+
     except:
         return None
 
 # ================= FAKE MATCHS =================
 def fake_matches():
     teams = ["Real Madrid","Man City","Barcelona","Liverpool","Bayern","PSG"]
-    return [{"homeTeam":{"name":random.choice(teams)},
-             "awayTeam":{"name":random.choice(teams)}} for _ in range(5)]
+    matches = []
+    for _ in range(6):
+        h = random.choice(teams)
+        a = random.choice(teams)
+        if h != a:
+            matches.append({"homeTeam":{"name":h},"awayTeam":{"name":a}})
+    return matches
 
 # ================= LOGIQUE =================
 stats = get_standings()
@@ -137,7 +154,6 @@ if not matches:
     matches = fake_matches()
     mode = "IA"
 
-# affichage mode
 if mode == "RÉEL":
     st.success("📡 DONNÉES RÉELLES")
 else:
@@ -145,13 +161,18 @@ else:
 
 results = []
 
+seen = set()
+
 for m in matches:
     try:
         home = m["homeTeam"]["name"]
         away = m["awayTeam"]["name"]
 
-        if home == away:
+        key = home + away
+        if home == away or key in seen:
             continue
+
+        seen.add(key)
 
         res = analyse(home, away, stats)
 
@@ -196,11 +217,17 @@ for m in top:
 # ================= STRAT =================
 st.subheader("💰 STRATÉGIE INTELLIGENTE")
 
-cote = round(sum([m["confiance"]/100 for m in top]) + 1, 2)
-gain = mise * cote
+if not top:
+    st.warning("⚠️ Aucun pari fiable aujourd’hui → NE PAS JOUER")
+else:
+    mise_conseillee = int(bankroll * 0.05)
 
-for m in top:
-    st.write("✔️", m["match"], "→", m["analyse"])
+    cote = round(sum([m["confiance"]/100 for m in top]) + 1, 2)
+    gain = mise_conseillee * cote
 
-st.success(f"Cote: {cote}")
-st.success(f"Gain potentiel: {gain}")
+    for m in top:
+        st.write("✔️", m["match"], "→", m["analyse"])
+
+    st.info(f"💰 Mise conseillée: {mise_conseillee}")
+    st.success(f"Cote: {cote}")
+    st.success(f"Gain potentiel: {gain}")
