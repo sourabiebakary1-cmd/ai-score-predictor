@@ -4,50 +4,89 @@ import pandas as pd
 import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
+import time
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V15", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V23", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V15")
+# 🎨 STYLE
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: white;
+}
+h1 {
+    color: #00ffcc;
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("⚽ BAKARY AI FOOTBALL PRO V23 🚀")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
-
 headers = {"X-Auth-Token": API_KEY}
 
-st.sidebar.title("Paramètres")
+# -------- SIDEBAR --------
+st.sidebar.title("⚙️ Paramètres")
 
-mise = st.sidebar.number_input("Mise", value=100, min_value=0)
-
+mise = st.sidebar.number_input("💰 Mise", value=100)
 menu = st.sidebar.radio(
     "Menu",
     [
-        "Tableau Pronostics",
-        "Graphique IA",
-        "Top 5 Paris Sûrs",
-        "Matchs Pièges",
-        "Matchs Presque Sûrs",
-        "Score Exact IA",
-        "Ticket Intelligent",
-        "Top 3 Ultra Safe"
+        "Pari Intelligent 🎯",
+        "Top Safe 🔒",
+        "Ticket Auto 🎟️",
+        "Stop Loss 🛑",
+        "Live Alert ⏱️"
     ]
 )
 
-@st.cache_data(ttl=3600)
+# -------- STATS --------
+def get_team_stats(team_id):
+    try:
+        url = f"https://api.football-data.org/v4/teams/{team_id}/matches"
+        params = {"limit": 10, "status": "FINISHED"}
+        r = requests.get(url, headers=headers, params=params, timeout=10)
+
+        if r.status_code != 200:
+            return 1.5, 1.2
+
+        data = r.json()
+        matches = data.get("matches", [])
+
+        goals_for = goals_against = count = 0
+
+        for m in matches:
+            if m["score"]["fullTime"]["home"] is None:
+                continue
+
+            if m["homeTeam"]["id"] == team_id:
+                goals_for += m["score"]["fullTime"]["home"]
+                goals_against += m["score"]["fullTime"]["away"]
+            else:
+                goals_for += m["score"]["fullTime"]["away"]
+                goals_against += m["score"]["fullTime"]["home"]
+
+            count += 1
+
+        if count == 0:
+            return 1.5, 1.2
+
+        return goals_for/count, goals_against/count
+
+    except:
+        return 1.5, 1.2
+
+# -------- MATCHES --------
+@st.cache_data(ttl=600)
 def get_matches():
 
     leagues = ["PL","PD","BL1","SA","FL1"]
-
     today = datetime.utcnow()
-    future = today + timedelta(days=7)
+    future = today + timedelta(days=2)
 
     matches = []
-
-    # 🔥 LISTE GROSSES ÉQUIPES
-    big_teams = [
-        "Manchester City","Liverpool","Real Madrid","Barcelona",
-        "Bayern Munich","PSG","Arsenal","Chelsea","Manchester United",
-        "Inter","AC Milan","Juventus","Atletico Madrid"
-    ]
 
     for league in leagues:
         try:
@@ -58,194 +97,143 @@ def get_matches():
             }
 
             r = requests.get(url, headers=headers, params=params, timeout=10)
-
             if r.status_code != 200:
                 continue
 
             data = r.json()
 
-            if "matches" not in data:
-                continue
+            for match in data.get("matches", []):
 
-            for match in data["matches"]:
+                home = match["homeTeam"]["name"]
+                away = match["awayTeam"]["name"]
 
-                home = match.get("homeTeam", {}).get("name", "Unknown")
-                away = match.get("awayTeam", {}).get("name", "Unknown")
+                home_id = match["homeTeam"]["id"]
+                away_id = match["awayTeam"]["id"]
 
-                # 🔥 BONUS ÉQUIPE FORTE
-                bonus_home = 0
-                bonus_away = 0
+                home_attack, home_def = get_team_stats(home_id)
+                away_attack, away_def = get_team_stats(away_id)
 
-                if any(team in home for team in big_teams):
-                    bonus_home = 0.4
+                attack_home = (home_attack + away_def)/2 + 0.3
+                attack_away = (away_attack + home_def)/2
 
-                if any(team in away for team in big_teams):
-                    bonus_away = 0.4
-
-                # IA AMÉLIORÉE
-                base_home = np.random.uniform(1.4, 2.0)
-                base_away = np.random.uniform(1.0, 1.6)
-
-                home_advantage = 0.3
-
-                attack_home = base_home + home_advantage + bonus_home
-                attack_away = base_away + bonus_away
-
-                # 🔒 SÉCURITÉ
-                attack_home = min(max(attack_home, 1.0), 3.5)
-                attack_away = min(max(attack_away, 0.8), 3.0)
-
-                max_goals = 6
-
-                home_probs = [poisson.pmf(i, attack_home) for i in range(max_goals)]
-                away_probs = [poisson.pmf(i, attack_away) for i in range(max_goals)]
+                home_probs = [poisson.pmf(i, attack_home) for i in range(6)]
+                away_probs = [poisson.pmf(i, attack_away) for i in range(6)]
 
                 matrix = np.outer(home_probs, away_probs)
 
-                home_win = draw = away_win = 0
-                best_score = ""
-                best_prob = 0
-                top_scores = []
+                home_win = away_win = 0
+                over25 = btts = 0
 
-                over15 = over25 = btts = 0
-
-                for i in range(max_goals):
-                    for j in range(max_goals):
-
-                        prob = matrix[i][j]
+                for i in range(6):
+                    for j in range(6):
+                        p = matrix[i][j]
 
                         if i > j:
-                            home_win += prob
-                        elif i == j:
-                            draw += prob
+                            home_win += p
                         else:
-                            away_win += prob
+                            away_win += p
 
-                        top_scores.append((f"{i}-{j}", prob))
+                        if i+j > 2:
+                            over25 += p
+                        if i>0 and j>0:
+                            btts += p
 
-                        if prob > best_prob:
-                            best_prob = prob
-                            best_score = f"{i}-{j}"
+                prob_home = int(home_win*100)
+                prob_away = int(away_win*100)
 
-                        if i + j > 1:
-                            over15 += prob
-
-                        if i + j > 2:
-                            over25 += prob
-
-                        if i > 0 and j > 0:
-                            btts += prob
-
-                top_scores = sorted(top_scores, key=lambda x: x[1], reverse=True)[:3]
-                scores_str = ", ".join([f"{s[0]} ({int(s[1]*100)}%)" for s in top_scores])
-
-                prob_home = int(home_win * 100)
-                prob_draw = int(draw * 100)
-                prob_away = int(away_win * 100)
-
-                prob_home = min(max(prob_home, 0), 100)
-                prob_draw = min(max(prob_draw, 0), 100)
-                prob_away = min(max(prob_away, 0), 100)
-
-                if prob_home > prob_away and prob_home > prob_draw:
-                    prediction = "1"
-                elif prob_away > prob_home and prob_away > prob_draw:
-                    prediction = "2"
+                if over25 > 0.65:
+                    bet = "🔥 Over 2.5"
+                elif btts > 0.60:
+                    bet = "🔥 BTTS"
                 else:
-                    prediction = "N"
+                    bet = "⚖️ Match risqué"
 
                 diff = abs(prob_home - prob_away)
 
-                if diff < 8 or (prob_home < 55 and prob_away < 55):
-                    status = "🚨 Piège"
-                elif prob_home >= 72 and over15 > 0.75:
-                    status = "💎 Ultra Safe"
-                elif prob_home >= 60:
-                    status = "Bon Pari"
+                if diff < 10:
+                    danger = "🚨"
+                elif diff < 20:
+                    danger = "⚠️"
                 else:
-                    status = "Risque"
-
-                cote = round(np.random.uniform(1.4, 3.0), 2)
-
-                confiance = int(
-                    (prob_home * 0.4) +
-                    (over15 * 100 * 0.2) +
-                    (over25 * 100 * 0.2) +
-                    (btts * 100 * 0.2)
-                )
-
-                confiance = min(max(confiance, 0), 100)
+                    danger = "✅"
 
                 matches.append({
                     "Match": f"{home} vs {away}",
-                    "Pronostic": prediction,
-                    "Score Exact": best_score,
-                    "Top Scores": scores_str,
-                    "Home %": prob_home,
-                    "Draw %": prob_draw,
-                    "Away %": prob_away,
-                    "Over1.5 %": int(over15*100),
-                    "Over2.5 %": int(over25*100),
-                    "BTTS %": int(btts*100),
-                    "Cote": cote,
-                    "Confiance": confiance,
-                    "Statut": status
+                    "Pari": bet,
+                    "Danger": danger
                 })
 
-        except Exception:
+        except:
             continue
 
     return pd.DataFrame(matches)
 
 df = get_matches()
 
-def detect_safe_matches(df):
-    if df.empty:
-        return df
-    return df[
-        (df["Home %"] >= 68) &
-        (df["Over1.5 %"] >= 75) &
-        (df["BTTS %"] >= 55) &
-        (df["Statut"] != "🚨 Piège")
-    ].sort_values(by="Confiance", ascending=False)
+# -------- STOP LOSS --------
+def stop_loss(df):
+    safe = df[df["Danger"]=="✅"]
 
-# ----------- AFFICHAGE -----------
+    if len(safe) < 2:
+        return "🛑 STOP"
 
+    return "✅ GO"
+
+# -------- TICKET --------
+def ticket_auto(df, mise):
+    df = df[df["Danger"]=="✅"].head(3)
+
+    cote = round(np.random.uniform(2.5,4.5),2)
+    gain = mise * cote
+
+    return df, cote, gain
+
+# -------- LIVE ALERT --------
+def live_alert(df):
+    alerts = []
+
+    for _, row in df.iterrows():
+
+        if "Over" in row["Pari"] and row["Danger"]=="✅":
+            alerts.append(f"🔥 {row['Match']} → OVER conseillé")
+
+        elif "BTTS" in row["Pari"] and row["Danger"]=="✅":
+            alerts.append(f"🔥 {row['Match']} → BTTS conseillé")
+
+    return alerts
+
+# -------- UI --------
 if df.empty:
-    st.warning("⚠️ Aucun match disponible")
+    st.warning("⚠️ Aucun match")
 else:
 
-    if menu == "Tableau Pronostics":
-        st.dataframe(df)
+    if menu == "Pari Intelligent 🎯":
+        st.table(df)
 
-    elif menu == "Graphique IA":
-        fig, ax = plt.subplots()
-        top = df.head(10)
-        ax.bar(top["Match"], top["Home %"])
-        plt.xticks(rotation=90)
-        st.pyplot(fig)
+    elif menu == "Top Safe 🔒":
+        st.table(df[df["Danger"]=="✅"])
 
-    elif menu == "Top 5 Paris Sûrs":
-        st.table(df[df["Statut"] != "🚨 Piège"].sort_values(by="Confiance", ascending=False).head(5))
+    elif menu == "Stop Loss 🛑":
+        st.success(stop_loss(df))
 
-    elif menu == "Matchs Pièges":
-        st.table(df[df["Statut"] == "🚨 Piège"])
+    elif menu == "Ticket Auto 🎟️":
+        t, c, g = ticket_auto(df, mise)
+        st.table(t)
+        st.success(f"Cote: {c}")
+        st.success(f"Gain: {g}")
 
-    elif menu == "Matchs Presque Sûrs":
-        st.table(detect_safe_matches(df))
+    elif menu == "Live Alert ⏱️":
 
-    elif menu == "Score Exact IA":
-        st.table(df.sort_values(by="Confiance", ascending=False).head(10)[["Match","Top Scores","Confiance"]])
+        st.subheader("🚨 Alertes en direct")
 
-    elif menu == "Ticket Intelligent":
-        ticket = df[df["Statut"] != "🚨 Piège"].sort_values(by="Confiance", ascending=False).head(3)
-        st.table(ticket)
-        total = ticket["Cote"].prod()
-        gain = mise * total
-        st.success(f"Gain potentiel : {round(gain,2)}")
+        alerts = live_alert(df)
 
-    elif menu == "Top 3 Ultra Safe":
-        st.table(df[
-            (df["Statut"] != "🚨 Piège") &
-            (df["Over1.5 %"] > 75)
-        ].sort_values(by="Confiance", ascending=False).head(3))
+        if alerts:
+            for a in alerts:
+                st.success(a)
+        else:
+            st.warning("Aucune alerte fiable maintenant")
+
+        if st.button("🔄 Rafraîchir"):
+            st.cache_data.clear()
+            st.rerun()
