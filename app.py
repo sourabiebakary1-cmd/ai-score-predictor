@@ -5,18 +5,13 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 import random
 
-st.set_page_config(page_title="BAKARY AI RÉELLE PRO", layout="wide")
+st.set_page_config(page_title="BAKARY AI DIEU FINAL", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
 <style>
-html, body, [class*="css"] {
-    font-size: 20px !important;
-    color: white;
-}
-.stApp {
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-}
+html, body {font-size:20px; color:white;}
+.stApp {background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);}
 .card {
     background: rgba(0,0,0,0.85);
     padding:20px;
@@ -31,7 +26,7 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI IA RÉELLE PRO 🧠🔥</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI DIEU FINAL 🧠🔥</h1>", unsafe_allow_html=True)
 
 # ================= CONFIG =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
@@ -46,12 +41,11 @@ def safe_request(url):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
-        else:
-            return None
+        return None
     except:
         return None
 
-# ================= STATS =================
+# ================= STANDINGS =================
 @st.cache_data(ttl=600)
 def get_standings():
     data = safe_request("https://api.football-data.org/v4/competitions/PL/standings")
@@ -60,13 +54,12 @@ def get_standings():
     if data and "standings" in data:
         for t in data["standings"][0]["table"]:
             teams[t["team"]["name"]] = {
-                "points": t["points"],
                 "gf": t["goalsFor"],
                 "ga": t["goalsAgainst"]
             }
     return teams
 
-# ================= MATCHS MONDE =================
+# ================= MATCHS =================
 @st.cache_data(ttl=300)
 def get_matches():
     today = datetime.utcnow()
@@ -89,67 +82,66 @@ def predict_score(xg_home, xg_away):
     scores = [(f"{i}-{j}", matrix[i][j]) for i in range(5) for j in range(5)]
     return sorted(scores, key=lambda x: x[1], reverse=True)[:3]
 
-def analyse_real(home, away, stats):
-    if home not in stats or away not in stats:
-        # fallback si équipe inconnue
-        xg_home = random.uniform(1.2, 2.2)
-        xg_away = random.uniform(0.8, 2.0)
-    else:
-        h = stats[home]
-        a = stats[away]
+def analyse(home, away, stats):
+    try:
+        if home in stats and away in stats:
+            h = stats[home]
+            a = stats[away]
+            xg_home = (h["gf"]/10) - (a["ga"]/20)
+            xg_away = (a["gf"]/10) - (h["ga"]/20)
+        else:
+            xg_home = random.uniform(1.2,2.2)
+            xg_away = random.uniform(0.8,2.0)
 
-        xg_home = (h["gf"] / 10) - (a["ga"] / 20)
-        xg_away = (a["gf"] / 10) - (h["ga"] / 20)
+        xg_home = max(0.5, min(3, xg_home))
+        xg_away = max(0.5, min(3, xg_away))
 
-    xg_home = max(0.5, min(3, xg_home))
-    xg_away = max(0.5, min(3, xg_away))
+        scores = predict_score(xg_home, xg_away)
+        total = xg_home + xg_away
 
-    scores = predict_score(xg_home, xg_away)
+        if total > 2.8:
+            analyse = "🔥 OVER 2.5"
+        elif xg_home > xg_away:
+            analyse = "🏠 Victoire Domicile"
+        else:
+            analyse = "✈️ Victoire Extérieur"
 
-    total = xg_home + xg_away
+        diff = abs(xg_home - xg_away)
+        confiance = int(60 + diff*25)
 
-    if total > 2.8:
-        analyse = "🔥 OVER 2.5"
-    elif xg_home > xg_away:
-        analyse = "🏠 Victoire Domicile"
-    else:
-        analyse = "✈️ Victoire Extérieur"
+        badge = "🚨 PIÈGE" if diff < 0.3 else "💎 SAFE" if confiance > 75 else "⚠️ MOYEN"
 
-    diff = abs(xg_home - xg_away)
-    confiance = int(60 + diff * 25)
+        return {
+            "score": ", ".join([s[0] for s in scores]),
+            "analyse": analyse,
+            "confiance": max(50, min(90, confiance)),
+            "badge": badge
+        }
+    except:
+        return None
 
-    badge = "🚨 PIÈGE" if diff < 0.3 else "💎 SAFE" if confiance > 75 else "⚠️ MOYEN"
-
-    return {
-        "score": ", ".join([s[0] for s in scores]),
-        "analyse": analyse,
-        "confiance": max(50, min(90, confiance)),
-        "badge": badge
-    }
-
-# ================= FALLBACK MATCHS =================
+# ================= FAKE MATCHS =================
 def fake_matches():
     teams = ["Real Madrid","Man City","Barcelona","Liverpool","Bayern","PSG"]
-    res = []
-
-    for _ in range(5):
-        home = random.choice(teams)
-        away = random.choice([t for t in teams if t != home])
-
-        res.append({
-            "homeTeam": {"name": home},
-            "awayTeam": {"name": away}
-        })
-    return res
+    return [{"homeTeam":{"name":random.choice(teams)},
+             "awayTeam":{"name":random.choice(teams)}} for _ in range(5)]
 
 # ================= LOGIQUE =================
 stats = get_standings()
 matches = get_matches()
 
-# 🔥 SI API VIDE → FAKE
+mode = "RÉEL"
+
 if not matches:
-    st.warning("⚠️ API vide → Mode secours activé")
+    st.warning("⚠️ API OFF → MODE IA ACTIVÉ")
     matches = fake_matches()
+    mode = "IA"
+
+# affichage mode
+if mode == "RÉEL":
+    st.success("📡 DONNÉES RÉELLES")
+else:
+    st.error("🤖 MODE IA (SIMULATION)")
 
 results = []
 
@@ -158,7 +150,10 @@ for m in matches:
         home = m["homeTeam"]["name"]
         away = m["awayTeam"]["name"]
 
-        res = analyse_real(home, away, stats)
+        if home == away:
+            continue
+
+        res = analyse(home, away, stats)
 
         if res:
             results.append({
@@ -168,7 +163,6 @@ for m in matches:
     except:
         continue
 
-# ================= SI RIEN =================
 if not results:
     st.error("❌ Aucun match exploitable")
     st.stop()
@@ -190,18 +184,19 @@ for m in results:
     </div>
     """, unsafe_allow_html=True)
 
-# ================= TOP =================
-st.subheader("🏆 TOP PARIS")
+# ================= TOP SAFE =================
+st.subheader("🏆 TOP PARIS SÉCURISÉS")
 
-top = sorted(results, key=lambda x: x["confiance"], reverse=True)[:3]
+top = [m for m in results if "PIÈGE" not in m["badge"]]
+top = sorted(top, key=lambda x: x["confiance"], reverse=True)[:3]
 
 for m in top:
     st.success(f"{m['match']} → {m['analyse']} ({m['confiance']}%)")
 
 # ================= STRAT =================
-st.subheader("💰 STRATÉGIE")
+st.subheader("💰 STRATÉGIE INTELLIGENTE")
 
-cote = round(1.5 ** len(top), 2)
+cote = round(sum([m["confiance"]/100 for m in top]) + 1, 2)
 gain = mise * cote
 
 for m in top:
