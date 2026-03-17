@@ -8,7 +8,7 @@ import time
 
 st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V23", layout="wide")
 
-# 🎨 STYLE
+# 🎨 STYLE PRO
 st.markdown("""
 <style>
 .stApp {
@@ -18,6 +18,11 @@ st.markdown("""
 h1 {
     color: #00ffcc;
     text-align: center;
+}
+.stButton>button {
+    background-color: #00ffcc;
+    color: black;
+    border-radius: 10px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -43,6 +48,7 @@ menu = st.sidebar.radio(
 )
 
 # -------- STATS --------
+@st.cache_data(ttl=600)
 def get_team_stats(team_id):
     try:
         url = f"https://api.football-data.org/v4/teams/{team_id}/matches"
@@ -79,12 +85,13 @@ def get_team_stats(team_id):
         return 1.5, 1.2
 
 # -------- MATCHES --------
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def get_matches():
 
     leagues = ["PL","PD","BL1","SA","FL1"]
+
     today = datetime.utcnow()
-    future = today + timedelta(days=2)
+    future = today + timedelta(days=5)  # 🔥 augmenté
 
     matches = []
 
@@ -97,6 +104,7 @@ def get_matches():
             }
 
             r = requests.get(url, headers=headers, params=params, timeout=10)
+
             if r.status_code != 200:
                 continue
 
@@ -166,6 +174,14 @@ def get_matches():
         except:
             continue
 
+    # 🔥 FALLBACK (évite écran vide)
+    if len(matches) == 0:
+        matches.append({
+            "Match": "⚠️ API OFFLINE",
+            "Pari": "Réessaie plus tard",
+            "Danger": "🚨"
+        })
+
     return pd.DataFrame(matches)
 
 df = get_matches()
@@ -175,13 +191,16 @@ def stop_loss(df):
     safe = df[df["Danger"]=="✅"]
 
     if len(safe) < 2:
-        return "🛑 STOP"
+        return "🛑 STOP (Pas assez de matchs fiables)"
 
-    return "✅ GO"
+    return "✅ GO (Bon moment pour parier)"
 
 # -------- TICKET --------
 def ticket_auto(df, mise):
     df = df[df["Danger"]=="✅"].head(3)
+
+    if df.empty:
+        return df, 0, 0
 
     cote = round(np.random.uniform(2.5,4.5),2)
     gain = mise * cote
@@ -204,11 +223,11 @@ def live_alert(df):
 
 # -------- UI --------
 if df.empty:
-    st.warning("⚠️ Aucun match")
+    st.warning("⚠️ Aucun match disponible")
 else:
 
     if menu == "Pari Intelligent 🎯":
-        st.table(df)
+        st.dataframe(df)
 
     elif menu == "Top Safe 🔒":
         st.table(df[df["Danger"]=="✅"])
@@ -232,7 +251,7 @@ else:
             for a in alerts:
                 st.success(a)
         else:
-            st.warning("Aucune alerte fiable maintenant")
+            st.warning("Aucune alerte fiable")
 
         if st.button("🔄 Rafraîchir"):
             st.cache_data.clear()
