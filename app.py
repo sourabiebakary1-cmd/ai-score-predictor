@@ -3,20 +3,30 @@ import requests
 import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
+import time
 
 st.set_page_config(page_title="BAKARY AI DIEU PRO MAX", layout="wide")
 
-# ================= STYLE =================
+# ================= STYLE MOBILE PRO =================
 st.markdown("""
 <style>
-html, body {font-size:20px; color:white;}
-.stApp {background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);}
+html, body {
+    font-size:18px;
+    color:white;
+}
+h1 {
+    font-size:26px !important;
+}
+.stApp {
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+}
 .card {
-    background: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.7);
     padding:18px;
     border-radius:15px;
     margin-bottom:15px;
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    font-size:16px;
 }
 .bar {
     height:12px;
@@ -30,50 +40,50 @@ st.title("⚽ BAKARY AI DIEU PRO MAX 🧠🔥")
 
 # ================= API =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
-
-if not API_KEY:
-    st.error("❌ Clé API manquante")
-    st.stop()
-
 headers = {"X-Auth-Token": API_KEY}
 
 # ================= SIDEBAR =================
 mise = st.sidebar.number_input("💰 Mise", value=100)
 filtre = st.sidebar.selectbox("Filtre", ["Tous","SAFE","PIÈGE"])
 
-# ================= SAFE REQUEST =================
-@st.cache_data(ttl=300)
+# ================= SAFE REQUEST ULTRA =================
+@st.cache_data(ttl=600)
 def safe_request(url, params=None):
     try:
+        time.sleep(1.2)  # 🔥 évite trop de requêtes
+
         r = requests.get(url, headers=headers, params=params, timeout=10)
 
         if r.status_code == 200:
             return r.json()
 
         elif r.status_code == 403:
-            st.error("❌ Clé API invalide ou limite atteinte")
+            st.error("❌ Clé API invalide ou bloquée")
             return None
 
         elif r.status_code == 429:
-            st.warning("⚠️ Trop de requêtes API")
+            st.warning("⚠️ Limite API atteinte → pause 60s")
+            time.sleep(60)
             return None
 
-        return None
+        else:
+            return None
 
     except:
+        st.warning("⚠️ Erreur connexion API")
         return None
 
-# ================= FORCE ÉQUIPE =================
-@st.cache_data(ttl=600)
+# ================= FORCE ÉQUIPE OPTIMISÉ =================
+@st.cache_data(ttl=1800)
 def team_strength(team_id):
     data = safe_request(f"https://api.football-data.org/v4/teams/{team_id}/matches")
 
     if not data:
         return 1.2, 1.2
 
-    matches = data.get("matches", [])[:10]
+    matches = data.get("matches", [])[:6]  # 🔥 réduit appels
 
-    gf, ga, pts, count = 0,0,0,0
+    goals_for, goals_against, points, count = 0,0,0,0
 
     for m in matches:
         try:
@@ -82,19 +92,19 @@ def team_strength(team_id):
                 continue
 
             if m["homeTeam"]["id"] == team_id:
-                g_for = score.get("home",0)
-                g_against = score.get("away",0)
+                gf = score.get("home",0)
+                ga = score.get("away",0)
             else:
-                g_for = score.get("away",0)
-                g_against = score.get("home",0)
+                gf = score.get("away",0)
+                ga = score.get("home",0)
 
-            gf += g_for
-            ga += g_against
+            goals_for += gf
+            goals_against += ga
 
-            if g_for > g_against:
-                pts += 3
-            elif g_for == g_against:
-                pts += 1
+            if gf > ga:
+                points += 3
+            elif gf == ga:
+                points += 1
 
             count += 1
         except:
@@ -103,9 +113,9 @@ def team_strength(team_id):
     if count == 0:
         return 1.2, 1.2
 
-    attack = gf / count
-    defense = ga / count
-    form = pts / (count*3)
+    attack = goals_for / count
+    defense = goals_against / count
+    form = points / (count*3)
 
     return attack + form, defense
 
@@ -127,7 +137,7 @@ def get_matches():
         if not data:
             continue
 
-        for m in data.get("matches", []):
+        for m in data.get("matches", [])[:6]:  # 🔥 limite matchs
             try:
                 home = m["homeTeam"]["name"]
                 away = m["awayTeam"]["name"]
@@ -152,16 +162,14 @@ def get_matches():
                 confiance = int(65 + (avantage * 25))
                 confiance = max(45, min(90, confiance))
 
-                if confiance >= 85:
-                    badge = "💎 ULTRA SAFE"
-                elif confiance >= 78:
+                if confiance >= 78:
                     badge = "💎 SAFE"
                 elif abs(avantage) < 0.25:
                     badge = "🚨 PIÈGE"
                 else:
                     badge = "⚠️ MOYEN"
 
-                if filtre == "SAFE" and "SAFE" not in badge:
+                if filtre == "SAFE" and badge != "💎 SAFE":
                     continue
                 if filtre == "PIÈGE" and badge != "🚨 PIÈGE":
                     continue
@@ -178,40 +186,15 @@ def get_matches():
 
     if not results:
         results.append({
-            "match": "Aucun match",
-            "score": "Erreur API",
+            "match": "Aucun match fiable",
+            "score": "Données indisponibles",
             "confiance": 50,
-            "badge": "⚠️"
+            "badge": "⚠️ ATTENTE"
         })
 
     return results
 
 data = get_matches()
-
-# ================= IA GLOBAL =================
-st.subheader("📊 IA GLOBAL")
-
-moyenne = int(np.mean([m["confiance"] for m in data]))
-
-if moyenne >= 75:
-    st.success(f"🔥 IA FORTE ({moyenne}%)")
-elif moyenne >= 60:
-    st.warning(f"⚠️ IA MOYENNE ({moyenne}%)")
-else:
-    st.error(f"🚫 IA FAIBLE ({moyenne}%)")
-
-# ================= PARI DU JOUR =================
-st.subheader("🧠 PARI DU JOUR")
-
-best = sorted(data, key=lambda x: x["confiance"], reverse=True)[0]
-
-st.markdown(f"""
-<div class="card">
-🏆 {best['match']}<br><br>
-🔥 {best['confiance']}%<br><br>
-💎 <b>MEILLEUR PARI</b>
-</div>
-""", unsafe_allow_html=True)
 
 # ================= AFFICHAGE =================
 for m in data:
@@ -219,12 +202,46 @@ for m in data:
 
     st.markdown(f"""
     <div class="card">
-    ⚽ {m['match']}<br><br>
+    <b>⚽ {m['match']}</b><br><br>
     🎯 {m['score']}<br><br>
-    🏷️ {m['badge']}<br><br>
+    🏷️ <span style="color:{color}">{m['badge']}</span><br><br>
     📊 {m['confiance']}%
     <div class="bar">
         <div style="width:{m['confiance']}%; height:12px; background:{color}; border-radius:10px;"></div>
     </div>
     </div>
     """, unsafe_allow_html=True)
+
+# ================= TOP PARIS =================
+st.subheader("🎯 TOP PARIS IA")
+
+for m in data:
+    if "SAFE" in m["badge"]:
+        pari = "✅ Victoire probable"
+    elif "PIÈGE" in m["badge"]:
+        pari = "🚫 Éviter"
+    else:
+        pari = "⚠️ BTTS / Over 1.5"
+
+    st.markdown(f"""
+    <div class="card">
+    ⚽ {m['match']}<br><br>
+    🎯 <b>{pari}</b>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ================= BANKROLL =================
+st.subheader("💰 Gestion Bankroll")
+
+valid = [m for m in data if "SAFE" in m["badge"]]
+if len(valid) < 2:
+    valid = sorted(data, key=lambda x: x["confiance"], reverse=True)[:3]
+
+cote = round(1.4 ** len(valid),2)
+gain = mise * cote
+
+for m in valid:
+    st.write(m["match"])
+
+st.success(f"Cote: {cote}")
+st.success(f"Gain potentiel: {gain}")
