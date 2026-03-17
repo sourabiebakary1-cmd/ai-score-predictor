@@ -28,14 +28,10 @@ headers = {"X-Auth-Token": API_KEY}
 mise = st.sidebar.number_input("💰 Mise", 1, value=100)
 bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
 
-# ================= CHOIX DATE =================
+# ================= DATE =================
 choix = st.sidebar.selectbox("📅 Choisir la date", ["Aujourd'hui", "Demain"])
 
-if choix == "Aujourd'hui":
-    selected_date = datetime.utcnow()
-else:
-    selected_date = datetime.utcnow() + timedelta(days=1)
-
+selected_date = datetime.utcnow() if choix == "Aujourd'hui" else datetime.utcnow() + timedelta(days=1)
 date_str = selected_date.strftime("%Y-%m-%d")
 
 # ================= SAFE API =================
@@ -45,12 +41,11 @@ def safe_request(url):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
-        else:
-            return None
     except:
         return None
+    return None
 
-# ================= DATA =================
+# ================= STATS =================
 @st.cache_data(ttl=600)
 def get_stats():
     comps = ["CL","PL","PD","SA","BL1","FL1"]
@@ -69,6 +64,7 @@ def get_stats():
                 pass
     return teams
 
+# ================= MATCHS =================
 @st.cache_data(ttl=300)
 def get_matches(date):
     comps = ["CL","PL","PD","SA","BL1","FL1"]
@@ -98,14 +94,11 @@ def analyse(home,away,stats):
     try:
         h,a = stats[home], stats[away]
 
-        xg1 = (h["gf"]/10)-(a["ga"]/20)
-        xg2 = (a["gf"]/10)-(h["ga"]/20)
-
-        xg1 = max(0.6,min(3,xg1))
-        xg2 = max(0.6,min(3,xg2))
+        xg1 = max(0.6, min(3, (h["gf"]/10)-(a["ga"]/20)))
+        xg2 = max(0.6, min(3, (a["gf"]/10)-(h["ga"]/20)))
 
         scores = predict(xg1,xg2)
-        total = xg1+xg2
+        total = xg1 + xg2
         diff = abs(xg1-xg2)
 
         if total > 2.7:
@@ -138,16 +131,16 @@ def analyse(home,away,stats):
 stats = get_stats()
 
 if not stats:
-    st.error("❌ Erreur API (stats indisponibles)")
+    st.error("❌ API erreur (stats indisponibles)")
     st.stop()
 
 matches = get_matches(date_str)
 
-# 🔥 AUTO CORRECTION SI VIDE
+# AUTO DEMAIN
 if not matches:
     next_day = (selected_date + timedelta(days=1)).strftime("%Y-%m-%d")
     matches = get_matches(next_day)
-    st.warning(f"⚠️ Aucun match aujourd'hui → affichage de demain ({next_day})")
+    st.warning(f"⚠️ Aucun match aujourd'hui → demain ({next_day})")
 
 if not matches:
     st.error("❌ Aucun match disponible")
@@ -155,49 +148,51 @@ if not matches:
 
 results = []
 for m in matches:
-    try:
-        r = analyse(m["homeTeam"]["name"], m["awayTeam"]["name"], stats)
-        if r:
-            results.append(r)
-    except:
-        pass
+    r = analyse(m["homeTeam"]["name"], m["awayTeam"]["name"], stats)
+    if r:
+        results.append(r)
 
 if not results:
-    st.warning("⚠️ Aucun match analysé (équipes inconnues)")
+    st.warning("⚠️ Aucun match analysé")
     st.stop()
 
 # ================= FILTRE =================
-filtered = [r for r in results if "PIÈGE" not in r["badge"] and r["conf"] >= 70]
-
-if not filtered:
-    st.warning("⚠️ Aucun match SAFE aujourd'hui")
-    
-# ================= TOP 3 =================
-top = sorted(filtered, key=lambda x:x["conf"], reverse=True)[:3]
+safe = [r for r in results if r["conf"] >= 70 and "PIÈGE" not in r["badge"]]
+moyen = [r for r in results if 60 <= r["conf"] < 70]
 
 # ================= AFFICHAGE =================
-st.subheader(f"💎 TOP 3 ULTRA SAFE ({date_str})")
+st.subheader(f"💎 TOP SAFE ({date_str})")
 
-for m in top:
+for m in safe[:3]:
     st.success(f"{m['match']} → {m['pick']} ({m['conf']}%)")
 
-st.subheader("📊 MATCHS SÉLECTIONNÉS")
+st.subheader("💎 MATCHS SAFE")
 
-for m in filtered:
-    color = "green" if "SAFE" in m["badge"] else "orange"
-
+for m in safe:
     st.markdown(f"""
     <div class="card">
     ⚽ {m['match']}<br><br>
     🎯 {m['score']}<br><br>
     📊 {m['pick']}<br><br>
-    🏷️ <span style="color:{color}">{m['badge']}</span><br><br>
+    🏷️ <span style="color:green">{m['badge']}</span><br><br>
     📈 {m['conf']}%
     </div>
     """, unsafe_allow_html=True)
 
-# ================= STRAT =================
-st.subheader("💰 STRATÉGIE PRO")
+st.subheader("⚠️ MATCHS MOYENS")
 
+for m in moyen:
+    st.markdown(f"""
+    <div class="card">
+    ⚽ {m['match']}<br><br>
+    🎯 {m['score']}<br><br>
+    📊 {m['pick']}<br><br>
+    🏷️ <span style="color:orange">{m['badge']}</span><br><br>
+    📈 {m['conf']}%
+    </div>
+    """, unsafe_allow_html=True)
+
+# ================= STRATEGIE =================
+st.subheader("💰 STRATÉGIE PRO")
 mise_auto = int(bankroll * 0.05)
 st.info(f"💵 Mise conseillée : {mise_auto}")
