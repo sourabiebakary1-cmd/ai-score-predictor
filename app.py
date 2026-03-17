@@ -22,7 +22,7 @@ st.markdown("""
 st.title("⚽ BAKARY AI PRO MAX ULTIME 🧠🔥")
 
 # ================= CONFIG =================
-API_KEY = "289e8418878e48c598507cf2b72338f5"
+API_KEY = "289e8418878e48c598507cf2b72338f5
 headers = {"X-Auth-Token": API_KEY}
 
 mise = st.sidebar.number_input("💰 Mise", 1, value=100)
@@ -88,11 +88,10 @@ def predict(xg1,xg2):
     return sorted(scores,key=lambda x:x[1],reverse=True)[:3]
 
 def analyse(home,away,stats):
-    if home not in stats or away not in stats:
-        return None
-
     try:
-        h,a = stats[home], stats[away]
+        # 🔥 fallback si équipe inconnue
+        h = stats.get(home, {"gf":1.5,"ga":1.5})
+        a = stats.get(away, {"gf":1.5,"ga":1.5})
 
         xg1 = max(0.6, min(3, (h["gf"]/10)-(a["ga"]/20)))
         xg2 = max(0.6, min(3, (a["gf"]/10)-(h["ga"]/20)))
@@ -124,6 +123,7 @@ def analyse(home,away,stats):
             "conf": max(50,min(90,confiance)),
             "badge": badge
         }
+
     except:
         return None
 
@@ -136,7 +136,7 @@ if not stats:
 
 matches = get_matches(date_str)
 
-# AUTO DEMAIN
+# 🔥 AUTO DEMAIN
 if not matches:
     next_day = (selected_date + timedelta(days=1)).strftime("%Y-%m-%d")
     matches = get_matches(next_day)
@@ -159,6 +159,11 @@ if not results:
 # ================= FILTRE =================
 safe = [r for r in results if r["conf"] >= 70 and "PIÈGE" not in r["badge"]]
 moyen = [r for r in results if 60 <= r["conf"] < 70]
+
+# 🔥 SI VIDE → on affiche tout
+if not safe:
+    st.warning("⚠️ Aucun match SAFE → affichage complet")
+    safe = results
 
 # ================= AFFICHAGE =================
 st.subheader(f"💎 TOP SAFE ({date_str})")
