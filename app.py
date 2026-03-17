@@ -25,7 +25,6 @@ headers = {"X-Auth-Token": API_KEY}
 mise = st.sidebar.number_input("💰 Mise", value=100)
 filtre = st.sidebar.selectbox("Filtre", ["Tous","SAFE","PIÈGE"])
 
-# 🔒 API SAFE + RETRY + CACHE
 @st.cache_data(ttl=300)
 def safe_request(url, params=None):
     for _ in range(3):
@@ -37,7 +36,6 @@ def safe_request(url, params=None):
             time.sleep(1)
     return None
 
-# 🔥 FORCE ÉQUIPE AMÉLIORÉE
 @st.cache_data(ttl=600)
 def team_strength(team_id):
     data = safe_request(f"https://api.football-data.org/v4/teams/{team_id}/matches")
@@ -82,7 +80,6 @@ def team_strength(team_id):
 
     return attack + form, defense
 
-# ⚽ MATCHES
 @st.cache_data(ttl=300)
 def get_matches():
     leagues = ["PL","PD","SA"]
@@ -150,7 +147,6 @@ def get_matches():
             except:
                 continue
 
-    # 🔥 Fallback si vide
     if len(results) == 0:
         results.append({
             "match": "Aucun match fiable",
@@ -163,7 +159,7 @@ def get_matches():
 
 data = get_matches()
 
-# AFFICHAGE
+# AFFICHAGE MATCHS
 for m in data:
     color = "green" if "SAFE" in m["badge"] else "red" if "PIÈGE" in m["badge"] else "orange"
 
@@ -178,6 +174,41 @@ for m in data:
     </div>
     </div>
     """, unsafe_allow_html=True)
+
+# 🎯 TOP PARIS IA (NOUVEAU)
+st.subheader("🎯 TOP PARIS IA")
+
+for m in data:
+    try:
+        score = m["score"]
+        badge = m["badge"]
+
+        if "SAFE" in badge:
+            if "2-1" in score or "1-0" in score:
+                pari = "✅ Victoire domicile"
+            elif "0-1" in score or "1-2" in score:
+                pari = "✅ Victoire extérieur"
+            else:
+                pari = "🔥 Over 1.5 buts"
+
+        elif "PIÈGE" in badge:
+            pari = "🚫 Éviter ce match"
+
+        else:
+            if "1-1" in score:
+                pari = "🤝 Match nul"
+            else:
+                pari = "⚠️ BTTS"
+
+        st.markdown(f"""
+        <div class="card">
+        ⚽ {m['match']}<br><br>
+        🎯 <b>{pari}</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+    except:
+        continue
 
 # 💰 BANKROLL
 st.subheader("💰 Gestion Bankroll")
@@ -196,7 +227,7 @@ for m in valid:
 st.success(f"Cote: {cote}")
 st.success(f"Gain potentiel: {gain}")
 
-# 📡 LIVE AMÉLIORÉ
+# 📡 LIVE
 st.subheader("📡 MATCHS LIVE")
 
 def get_live_matches():
