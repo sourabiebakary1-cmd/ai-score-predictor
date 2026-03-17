@@ -101,83 +101,83 @@ def get_matches():
 
             for m in r.json().get("matches", []):
 
-                home = m["homeTeam"]["name"]
-                away = m["awayTeam"]["name"]
+                try:
+                    home = m["homeTeam"]["name"]
+                    away = m["awayTeam"]["name"]
 
-                h_id = m["homeTeam"]["id"]
-                a_id = m["awayTeam"]["id"]
+                    h_id = m["homeTeam"]["id"]
+                    a_id = m["awayTeam"]["id"]
 
-                h_att, h_def = get_team_stats(h_id)
-                a_att, a_def = get_team_stats(a_id)
+                    h_att, h_def = get_team_stats(h_id)
+                    a_att, a_def = get_team_stats(a_id)
 
-                # 🔥 BOOST
-                attack_home = (h_att + a_def)/2 + 0.4 + np.random.uniform(0.1,0.5)
-                attack_away = (a_att + h_def)/2 + np.random.uniform(0.1,0.5)
+                    # 🔥 BOOST
+                    attack_home = (h_att + a_def)/2 + 0.4 + np.random.uniform(0.1,0.5)
+                    attack_away = (a_att + h_def)/2 + np.random.uniform(0.1,0.5)
 
-                home_probs = [poisson.pmf(i, attack_home) for i in range(6)]
-                away_probs = [poisson.pmf(i, attack_away) for i in range(6)]
+                    home_probs = [poisson.pmf(i, attack_home) for i in range(6)]
+                    away_probs = [poisson.pmf(i, attack_away) for i in range(6)]
 
-                matrix = np.outer(home_probs, away_probs)
+                    matrix = np.outer(home_probs, away_probs)
 
-                home_win = draw = away_win = 0
-                over25 = btts = 0
+                    home_win = draw = away_win = 0
+                    over25 = btts = 0
+                    top_scores = []
 
-                top_scores = []
+                    for i in range(6):
+                        for j in range(6):
+                            p = matrix[i][j]
 
-                for i in range(6):
-                    for j in range(6):
-                        p = matrix[i][j]
+                            if i > j:
+                                home_win += p
+                            elif i == j:
+                                draw += p
+                            else:
+                                away_win += p
 
-                        if i > j:
-                            home_win += p
-                        elif i == j:
-                            draw += p
-                        else:
-                            away_win += p
+                            top_scores.append((f"{i}-{j}", p))
 
-                        top_scores.append((f"{i}-{j}", p))
+                            if i+j > 2:
+                                over25 += p
+                            if i>0 and j>0:
+                                btts += p
 
-                        if i+j > 2:
-                            over25 += p
-                        if i>0 and j>0:
-                            btts += p
+                    top_scores = sorted(top_scores, key=lambda x: x[1], reverse=True)[:3]
+                    scores_str = ", ".join([f"{s[0]} ({int(s[1]*100)}%)" for s in top_scores])
 
-                # 🎯 TOP 3 SCORES
-                top_scores = sorted(top_scores, key=lambda x: x[1], reverse=True)[:3]
-                scores_str = ", ".join([f"{s[0]} ({int(s[1]*100)}%)" for s in top_scores])
+                    prob_home = int(home_win*100)
+                    prob_away = int(away_win*100)
 
-                prob_home = int(home_win*100)
-                prob_away = int(away_win*100)
+                    if prob_home > 65:
+                        bet = "🏆 Victoire Domicile"
+                    elif prob_away > 65:
+                        bet = "🏆 Victoire Extérieur"
+                    elif over25 > 0.7:
+                        bet = "🔥 Over 2.5"
+                    elif btts > 0.65:
+                        bet = "🔥 BTTS"
+                    else:
+                        bet = "⚠️ Risqué"
 
-                # 🎯 PARI
-                if prob_home > 65:
-                    bet = "🏆 Victoire Domicile"
-                elif prob_away > 65:
-                    bet = "🏆 Victoire Extérieur"
-                elif over25 > 0.7:
-                    bet = "🔥 Over 2.5"
-                elif btts > 0.65:
-                    bet = "🔥 BTTS"
-                else:
-                    bet = "⚠️ Risqué"
+                    if abs(prob_home - prob_away) < 10:
+                        danger = "🚨 Piège"
+                    elif prob_home > 70 or prob_away > 70:
+                        danger = "💎 Ultra Safe"
+                    else:
+                        danger = "⚠️ Moyen"
 
-                # 🚨 DANGER
-                if abs(prob_home - prob_away) < 10:
-                    danger = "🚨 Piège"
-                elif prob_home > 70 or prob_away > 70:
-                    danger = "💎 Ultra Safe"
-                else:
-                    danger = "⚠️ Moyen"
+                    confiance = int((prob_home + over25*100 + btts*100)/3)
 
-                confiance = int((prob_home + over25*100 + btts*100)/3)
+                    matches.append({
+                        "Match": f"{home} vs {away}",
+                        "Pari": bet,
+                        "Score": scores_str,
+                        "Confiance": confiance,
+                        "Danger": danger
+                    })
 
-                matches.append({
-                    "Match": f"{home} vs {away}",
-                    "Pari": bet,
-                    "Score": scores_str,
-                    "Confiance": confiance,
-                    "Danger": danger
-                })
+                except:
+                    continue
 
         except:
             continue
@@ -195,13 +195,26 @@ def get_matches():
 
 df = get_matches()
 
-# 🔥 FILTRE ELITE (PLUS STRICT)
+# 🔥 FILTRE ELITE + MODE SECOURS
 if not df.empty and "Confiance" in df.columns:
-    df = df[
+
+    df_safe = df[
         (df["Confiance"] >= 70) &
         (df["Danger"] != "🚨 Piège") &
         (df["Pari"] != "⚠️ Risqué")
     ]
+
+    if df_safe.empty:
+        df = df[
+            (df["Confiance"] >= 60) &
+            (df["Danger"] != "🚨 Piège")
+        ]
+        st.warning("⚠️ Mode secours activé")
+    else:
+        df = df_safe
+
+# 📊 INFO MATCHS
+st.info(f"📊 Matchs disponibles : {len(df)}")
 
 # -------- BANKROLL --------
 def bankroll(mise, confiance):
@@ -214,7 +227,7 @@ def bankroll(mise, confiance):
 
 # -------- UI --------
 if df.empty:
-    st.warning("⚠️ Aucun bon match aujourd’hui (filtre ELITE actif)")
+    st.warning("⚠️ Aucun match disponible")
 else:
 
     if menu == "Analyse IA 🧠":
@@ -227,11 +240,10 @@ else:
         st.table(df[["Match","Score","Confiance"]])
 
     elif menu == "Matchs Pièges 🚨":
-        st.info("Tous les pièges sont supprimés ✅")
+        st.info("Filtrés automatiquement ✅")
 
     elif menu == "Ticket PRO 🎟️":
 
-        # 🎯 TRI INTELLIGENT
         df_sorted = df.sort_values(by="Confiance", ascending=False)
 
         ticket = df_sorted[
@@ -244,7 +256,6 @@ else:
 
         st.table(ticket)
 
-        # 💰 COTE INTELLIGENTE
         cote = 1
         for _, row in ticket.iterrows():
             if "Victoire" in row["Pari"]:
