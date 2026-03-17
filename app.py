@@ -6,9 +6,9 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V14", layout="wide")
+st.set_page_config(page_title="BAKARY AI FOOTBALL PRO V15", layout="wide")
 
-st.title("⚽ BAKARY AI FOOTBALL PRO V14")
+st.title("⚽ BAKARY AI FOOTBALL PRO V15")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
@@ -42,6 +42,13 @@ def get_matches():
 
     matches = []
 
+    # 🔥 LISTE GROSSES ÉQUIPES
+    big_teams = [
+        "Manchester City","Liverpool","Real Madrid","Barcelona",
+        "Bayern Munich","PSG","Arsenal","Chelsea","Manchester United",
+        "Inter","AC Milan","Juventus","Atletico Madrid"
+    ]
+
     for league in leagues:
         try:
             url = f"https://api.football-data.org/v4/competitions/{league}/matches"
@@ -65,18 +72,28 @@ def get_matches():
                 home = match.get("homeTeam", {}).get("name", "Unknown")
                 away = match.get("awayTeam", {}).get("name", "Unknown")
 
-                # IA AMÉLIORÉE + STABLE
+                # 🔥 BONUS ÉQUIPE FORTE
+                bonus_home = 0
+                bonus_away = 0
+
+                if any(team in home for team in big_teams):
+                    bonus_home = 0.4
+
+                if any(team in away for team in big_teams):
+                    bonus_away = 0.4
+
+                # IA AMÉLIORÉE
                 base_home = np.random.uniform(1.4, 2.0)
                 base_away = np.random.uniform(1.0, 1.6)
 
-                home_advantage = 0.25
+                home_advantage = 0.3
 
-                attack_home = base_home + home_advantage
-                attack_away = base_away
+                attack_home = base_home + home_advantage + bonus_home
+                attack_away = base_away + bonus_away
 
-                # Limite anti bug
-                attack_home = min(max(attack_home, 1.0), 3.2)
-                attack_away = min(max(attack_away, 0.8), 2.8)
+                # 🔒 SÉCURITÉ
+                attack_home = min(max(attack_home, 1.0), 3.5)
+                attack_away = min(max(attack_away, 0.8), 3.0)
 
                 max_goals = 6
 
@@ -126,7 +143,6 @@ def get_matches():
                 prob_draw = int(draw * 100)
                 prob_away = int(away_win * 100)
 
-                # Sécurité %
                 prob_home = min(max(prob_home, 0), 100)
                 prob_draw = min(max(prob_draw, 0), 100)
                 prob_away = min(max(prob_away, 0), 100)
@@ -196,7 +212,7 @@ def detect_safe_matches(df):
 # ----------- AFFICHAGE -----------
 
 if df.empty:
-    st.warning("⚠️ Aucun match disponible (API ou réseau)")
+    st.warning("⚠️ Aucun match disponible")
 else:
 
     if menu == "Tableau Pronostics":
