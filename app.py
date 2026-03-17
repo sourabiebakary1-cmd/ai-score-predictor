@@ -45,9 +45,10 @@ def safe_request(url):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
+        else:
+            return None
     except:
         return None
-    return None
 
 # ================= DATA =================
 @st.cache_data(ttl=600)
@@ -94,48 +95,62 @@ def analyse(home,away,stats):
     if home not in stats or away not in stats:
         return None
 
-    h,a = stats[home], stats[away]
+    try:
+        h,a = stats[home], stats[away]
 
-    xg1 = (h["gf"]/10)-(a["ga"]/20)
-    xg2 = (a["gf"]/10)-(h["ga"]/20)
+        xg1 = (h["gf"]/10)-(a["ga"]/20)
+        xg2 = (a["gf"]/10)-(h["ga"]/20)
 
-    xg1 = max(0.6,min(3,xg1))
-    xg2 = max(0.6,min(3,xg2))
+        xg1 = max(0.6,min(3,xg1))
+        xg2 = max(0.6,min(3,xg2))
 
-    scores = predict(xg1,xg2)
-    total = xg1+xg2
-    diff = abs(xg1-xg2)
+        scores = predict(xg1,xg2)
+        total = xg1+xg2
+        diff = abs(xg1-xg2)
 
-    if total > 2.7:
-        pick = "🔥 OVER 2.5"
-    elif xg1 > xg2:
-        pick = "🏠 HOME"
-    else:
-        pick = "✈️ AWAY"
+        if total > 2.7:
+            pick = "🔥 OVER 2.5"
+        elif xg1 > xg2:
+            pick = "🏠 HOME"
+        else:
+            pick = "✈️ AWAY"
 
-    confiance = int(55 + diff*35)
+        confiance = int(55 + diff*35)
 
-    if diff < 0.35:
-        badge = "🚨 PIÈGE"
-    elif confiance >= 75:
-        badge = "💎 SAFE"
-    else:
-        badge = "⚠️ MOYEN"
+        if diff < 0.35:
+            badge = "🚨 PIÈGE"
+        elif confiance >= 75:
+            badge = "💎 SAFE"
+        else:
+            badge = "⚠️ MOYEN"
 
-    return {
-        "match": f"{home} vs {away}",
-        "score": ", ".join([s[0] for s in scores]),
-        "pick": pick,
-        "conf": max(50,min(90,confiance)),
-        "badge": badge
-    }
+        return {
+            "match": f"{home} vs {away}",
+            "score": ", ".join([s[0] for s in scores]),
+            "pick": pick,
+            "conf": max(50,min(90,confiance)),
+            "badge": badge
+        }
+    except:
+        return None
 
 # ================= RUN =================
 stats = get_stats()
+
+if not stats:
+    st.error("❌ Erreur API (stats indisponibles)")
+    st.stop()
+
 matches = get_matches(date_str)
 
+# 🔥 AUTO CORRECTION SI VIDE
 if not matches:
-    st.error("❌ Aucun match pour cette date")
+    next_day = (selected_date + timedelta(days=1)).strftime("%Y-%m-%d")
+    matches = get_matches(next_day)
+    st.warning(f"⚠️ Aucun match aujourd'hui → affichage de demain ({next_day})")
+
+if not matches:
+    st.error("❌ Aucun match disponible")
     st.stop()
 
 results = []
@@ -147,9 +162,16 @@ for m in matches:
     except:
         pass
 
+if not results:
+    st.warning("⚠️ Aucun match analysé (équipes inconnues)")
+    st.stop()
+
 # ================= FILTRE =================
 filtered = [r for r in results if "PIÈGE" not in r["badge"] and r["conf"] >= 70]
 
+if not filtered:
+    st.warning("⚠️ Aucun match SAFE aujourd'hui")
+    
 # ================= TOP 3 =================
 top = sorted(filtered, key=lambda x:x["conf"], reverse=True)[:3]
 
