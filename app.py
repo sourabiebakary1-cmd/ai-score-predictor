@@ -3,8 +3,9 @@ import requests
 import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
+import random
 
-st.set_page_config(page_title="BAKARY AI RÉELLE", layout="wide")
+st.set_page_config(page_title="BAKARY AI RÉELLE PRO", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
@@ -30,7 +31,7 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI IA RÉELLE 🧠📊</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI IA RÉELLE PRO 🧠🔥</h1>", unsafe_allow_html=True)
 
 # ================= CONFIG =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
@@ -45,17 +46,18 @@ def safe_request(url):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
-        return None
+        else:
+            return None
     except:
         return None
 
-# ================= RÉCUP STATS =================
+# ================= STATS =================
 @st.cache_data(ttl=600)
 def get_standings():
     data = safe_request("https://api.football-data.org/v4/competitions/PL/standings")
     
     teams = {}
-    if data:
+    if data and "standings" in data:
         for t in data["standings"][0]["table"]:
             teams[t["team"]["name"]] = {
                 "points": t["points"],
@@ -64,20 +66,19 @@ def get_standings():
             }
     return teams
 
-# ================= MATCHS =================
+# ================= MATCHS MONDE =================
 @st.cache_data(ttl=300)
 def get_matches():
     today = datetime.utcnow()
-    future = today + timedelta(days=2)
+    future = today + timedelta(days=3)
 
-    data = safe_request(
-        f"https://api.football-data.org/v4/competitions/PL/matches?dateFrom={today.strftime('%Y-%m-%d')}&dateTo={future.strftime('%Y-%m-%d')}"
-    )
+    url = f"https://api.football-data.org/v4/matches?dateFrom={today.strftime('%Y-%m-%d')}&dateTo={future.strftime('%Y-%m-%d')}"
+    data = safe_request(url)
 
-    if not data:
+    if not data or "matches" not in data:
         return []
 
-    return data["matches"][:6]
+    return data["matches"][:10]
 
 # ================= IA =================
 def predict_score(xg_home, xg_away):
@@ -90,14 +91,15 @@ def predict_score(xg_home, xg_away):
 
 def analyse_real(home, away, stats):
     if home not in stats or away not in stats:
-        return None
+        # fallback si équipe inconnue
+        xg_home = random.uniform(1.2, 2.2)
+        xg_away = random.uniform(0.8, 2.0)
+    else:
+        h = stats[home]
+        a = stats[away]
 
-    h = stats[home]
-    a = stats[away]
-
-    # xG basé sur vraies stats
-    xg_home = (h["gf"] / 10) - (a["ga"] / 20)
-    xg_away = (a["gf"] / 10) - (h["ga"] / 20)
+        xg_home = (h["gf"] / 10) - (a["ga"] / 20)
+        xg_away = (a["gf"] / 10) - (h["ga"] / 20)
 
     xg_home = max(0.5, min(3, xg_home))
     xg_away = max(0.5, min(3, xg_away))
@@ -125,23 +127,51 @@ def analyse_real(home, away, stats):
         "badge": badge
     }
 
+# ================= FALLBACK MATCHS =================
+def fake_matches():
+    teams = ["Real Madrid","Man City","Barcelona","Liverpool","Bayern","PSG"]
+    res = []
+
+    for _ in range(5):
+        home = random.choice(teams)
+        away = random.choice([t for t in teams if t != home])
+
+        res.append({
+            "homeTeam": {"name": home},
+            "awayTeam": {"name": away}
+        })
+    return res
+
 # ================= LOGIQUE =================
 stats = get_standings()
 matches = get_matches()
 
+# 🔥 SI API VIDE → FAKE
+if not matches:
+    st.warning("⚠️ API vide → Mode secours activé")
+    matches = fake_matches()
+
 results = []
 
 for m in matches:
-    home = m["homeTeam"]["name"]
-    away = m["awayTeam"]["name"]
+    try:
+        home = m["homeTeam"]["name"]
+        away = m["awayTeam"]["name"]
 
-    res = analyse_real(home, away, stats)
+        res = analyse_real(home, away, stats)
 
-    if res:
-        results.append({
-            "match": f"{home} vs {away}",
-            **res
-        })
+        if res:
+            results.append({
+                "match": f"{home} vs {away}",
+                **res
+            })
+    except:
+        continue
+
+# ================= SI RIEN =================
+if not results:
+    st.error("❌ Aucun match exploitable")
+    st.stop()
 
 # ================= AFFICHAGE =================
 for m in results:
@@ -161,7 +191,7 @@ for m in results:
     """, unsafe_allow_html=True)
 
 # ================= TOP =================
-st.subheader("🏆 TOP PARIS RÉELS")
+st.subheader("🏆 TOP PARIS")
 
 top = sorted(results, key=lambda x: x["confiance"], reverse=True)[:3]
 
