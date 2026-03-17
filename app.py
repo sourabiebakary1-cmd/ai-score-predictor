@@ -22,7 +22,8 @@ st.markdown("""
 st.title("⚽ BAKARY AI PRO MAX ULTIME 🧠🔥")
 
 # ================= CONFIG =================
-API_KEY = "289e8418878e48c598507cf2b72338f5
+API_KEY = 
+"289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
 mise = st.sidebar.number_input("💰 Mise", 1, value=100)
