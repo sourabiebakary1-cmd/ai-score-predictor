@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import poisson
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="BAKARY AI DIEU", layout="wide")
+st.set_page_config(page_title="BAKARY AI DIEU PRO MAX", layout="wide")
 
 # STYLE
 st.markdown("""
@@ -16,7 +16,7 @@ html, body {font-size:18px; color:white;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI DIEU 🧠🔥")
+st.title("⚽ BAKARY AI DIEU PRO MAX 🧠🔥")
 
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
@@ -24,7 +24,7 @@ headers = {"X-Auth-Token": API_KEY}
 mise = st.sidebar.number_input("💰 Mise", value=100)
 filtre = st.sidebar.selectbox("Filtre", ["Tous","SAFE","PIÈGE"])
 
-# SAFE API
+# API SAFE
 def safe_request(url, params=None):
     try:
         r = requests.get(url, headers=headers, params=params, timeout=10)
@@ -34,18 +34,16 @@ def safe_request(url, params=None):
         pass
     return None
 
-# FORME + FORCE
+# FORCE ÉQUIPE
 def team_strength(team_id):
     data = safe_request(f"https://api.football-data.org/v4/teams/{team_id}/matches")
+
     if not data:
         return 1,1
 
     matches = data.get("matches", [])[:10]
 
-    goals_for = 0
-    goals_against = 0
-    points = 0
-    count = 0
+    goals_for, goals_against, points, count = 0,0,0,0
 
     for m in matches:
         try:
@@ -68,7 +66,6 @@ def team_strength(team_id):
                 points += 1
 
             count += 1
-
         except:
             continue
 
@@ -99,7 +96,6 @@ def get_matches():
             continue
 
         for m in data.get("matches", []):
-
             try:
                 home = m["homeTeam"]["name"]
                 away = m["awayTeam"]["name"]
@@ -110,7 +106,6 @@ def get_matches():
                 att_h, def_h = team_strength(h_id)
                 att_a, def_a = team_strength(a_id)
 
-                # IA MULTI FACTEURS
                 xg_home = (att_h + def_a)/2 + 0.5
                 xg_away = (att_a + def_h)/2
 
@@ -119,24 +114,16 @@ def get_matches():
                     [poisson.pmf(j, xg_away) for j in range(5)]
                 )
 
-                scores = []
-                for i in range(5):
-                    for j in range(5):
-                        scores.append((f"{i}-{j}", matrix[i][j]))
-
+                scores = [(f"{i}-{j}", matrix[i][j]) for i in range(5) for j in range(5)]
                 top_scores = sorted(scores, key=lambda x: x[1], reverse=True)[:3]
+
                 score_txt = ", ".join([f"{s[0]} ({int(s[1]*100)}%)" for s in top_scores])
 
-                # CONFIANCE IA
                 avantage = xg_home - xg_away
                 confiance = int(60 + (avantage * 20))
 
-                if confiance > 85:
-                    confiance = 85
-                if confiance < 40:
-                    confiance = 40
+                confiance = max(40, min(85, confiance))
 
-                # BADGE
                 if confiance >= 75:
                     badge = "💎 SAFE"
                 elif abs(avantage) < 0.3:
@@ -164,55 +151,49 @@ def get_matches():
 data = get_matches()
 
 # AFFICHAGE
-for m in data:
+if not data:
+    st.error("❌ Aucun match trouvé (API lente ou indisponible)")
+else:
+    for m in data:
+        color = "green" if "SAFE" in m["badge"] else "red" if "PIÈGE" in m["badge"] else "orange"
 
-    if "SAFE" in m["badge"]:
-        color = "green"
-    elif "PIÈGE" in m["badge"]:
-        color = "red"
-    else:
-        color = "orange"
+        st.markdown(f"""
+        <div class="card">
+        <b>⚽ {m['match']}</b><br><br>
+        🎯 {m['score']}<br><br>
+        🏷️ <span style="color:{color}">{m['badge']}</span><br><br>
+        📊 {m['confiance']}%
+        <div class="bar">
+            <div style="width:{m['confiance']}%; height:10px; background:{color}; border-radius:10px;"></div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown(f"""
-    <div class="card">
-    <b>⚽ {m['match']}</b><br><br>
-
-    🎯 {m['score']}<br><br>
-
-    🏷️ <span style="color:{color}">{m['badge']}</span><br><br>
-
-    📊 {m['confiance']}%
-
-    <div class="bar">
-        <div style="width:{m['confiance']}%; height:10px; background:{color}; border-radius:10px;"></div>
-    </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# 💰 BANKROLL INTELLIGENTE
+# 💰 BANKROLL INTELLIGENTE (CORRIGÉ)
 st.subheader("💰 Gestion Bankroll")
 
-safe_matches = [m for m in data if "SAFE" in m["badge"]][:3]
+if data:
+    safe_matches = [m for m in data if "SAFE" in m["badge"]]
 
-if safe_matches:
-    mise_safe = mise * 0.3
-    cote = round(1.5 ** len(safe_matches),2)
-    gain = mise_safe * cote
+    if len(safe_matches) >= 2:
+        selected = safe_matches[:3]
+    else:
+        selected = sorted(data, key=lambda x: x["confiance"], reverse=True)[:3]
 
-    for m in safe_matches:
+    cote = round(1.5 ** len(selected),2)
+    gain = mise * cote
+
+    for m in selected:
         st.write(m["match"])
 
-    st.success(f"Mise conseillée: {mise_safe}")
     st.success(f"Cote: {cote}")
     st.success(f"Gain potentiel: {gain}")
 
-else:
-    st.warning("Pas assez de matchs SAFE")
+# 📡 LIVE
 st.subheader("📡 MATCHS LIVE")
 
 def get_live_matches():
     data = safe_request("https://api.football-data.org/v4/matches")
-
     live_list = []
 
     if not data:
@@ -220,50 +201,42 @@ def get_live_matches():
 
     for m in data.get("matches", []):
         try:
-            if m["status"] in ["IN_PLAY", "PAUSED"]:
-
+            if m["status"] in ["IN_PLAY","PAUSED"]:
                 home = m["homeTeam"]["name"]
                 away = m["awayTeam"]["name"]
-
-                minute = m["minute"] if "minute" in m else 0
 
                 score_home = m["score"]["fullTime"]["home"] or 0
                 score_away = m["score"]["fullTime"]["away"] or 0
 
-                # 🔥 IA LIVE
                 total_goals = score_home + score_away
 
-                if minute > 60 and total_goals < 2:
-                    prediction = "⚽ BUT BIENTÔT"
-                    color = "orange"
-                elif total_goals >= 2:
+                if total_goals >= 2:
                     prediction = "🔥 OVER 2.5"
                     color = "green"
                 else:
                     prediction = "⚠️ CALME"
-                    color = "red"
+                    color = "orange"
 
                 live_list.append({
                     "match": f"{home} vs {away}",
                     "score": f"{score_home} - {score_away}",
-                    "minute": minute,
                     "prediction": prediction,
                     "color": color
                 })
-
         except:
             continue
 
     return live_list
 
-
 live_data = get_live_matches()
+
+if not live_data:
+    st.info("⏳ Aucun match en direct pour le moment")
 
 for m in live_data:
     st.markdown(f"""
     <div class="card">
     ⚽ {m['match']}<br><br>
-    ⏱️ {m['minute']}'<br><br>
     📊 {m['score']}<br><br>
     <b style="color:{m['color']}">{m['prediction']}</b>
     </div>
