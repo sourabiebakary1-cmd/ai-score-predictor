@@ -5,7 +5,7 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 import time
 
-st.set_page_config(page_title="BAKARY AI PRO (JOUEUR)", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX (JOUEUR)", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
@@ -20,15 +20,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI PRO 🧠🔥 (VERSION JOUEUR)")
+st.title("⚽ BAKARY AI PRO MAX 🧠🔥")
 
-# ================= CONFIG =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
 bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
 
-# ================= DATE =================
 choix = st.sidebar.selectbox("📅 Date", ["Aujourd'hui", "Demain"])
 selected_date = datetime.utcnow() if choix == "Aujourd'hui" else datetime.utcnow() + timedelta(days=1)
 date_str = selected_date.strftime("%Y-%m-%d")
@@ -42,7 +40,7 @@ def safe_request(url):
         if r.status_code == 200:
             return r.json()
     except:
-        st.warning("⚠️ Erreur API")
+        return None
     return None
 
 # ================= STATS =================
@@ -50,23 +48,65 @@ def safe_request(url):
 def get_stats():
     comps = ["PL","PD"]
     teams = {}
-
     for c in comps:
         data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/standings")
         if data and "standings" in data:
             for t in data["standings"][0]["table"]:
                 teams[t["team"]["name"].strip()] = {
                     "gf": t["goalsFor"],
-                    "ga": t["goalsAgainst"]
+                    "ga": t["goalsAgainst"],
+                    "id": t["team"]["id"]
                 }
     return teams
+
+# ================= FORME =================
+@st.cache_data(ttl=600)
+def get_form(team_id):
+    data = safe_request(f"https://api.football-data.org/v4/teams/{team_id}/matches?status=FINISHED&limit=5")
+    if not data or "matches" not in data:
+        return 0
+
+    points = 0
+    for m in data["matches"]:
+        if m["score"]["winner"] == "HOME_TEAM":
+            if m["homeTeam"]["id"] == team_id:
+                points += 3
+        elif m["score"]["winner"] == "AWAY_TEAM":
+            if m["awayTeam"]["id"] == team_id:
+                points += 3
+        else:
+            points += 1
+    return points
+
+# ================= H2H =================
+@st.cache_data(ttl=600)
+def get_h2h(team1_id, team2_id):
+    data = safe_request(f"https://api.football-data.org/v4/teams/{team1_id}/matches?status=FINISHED&limit=10")
+    if not data or "matches" not in data:
+        return 0
+
+    score = 0
+    for m in data["matches"]:
+        if (m["homeTeam"]["id"] == team1_id and m["awayTeam"]["id"] == team2_id) or \
+           (m["homeTeam"]["id"] == team2_id and m["awayTeam"]["id"] == team1_id):
+
+            if m["score"]["winner"] == "HOME_TEAM":
+                if m["homeTeam"]["id"] == team1_id:
+                    score += 1
+                else:
+                    score -= 1
+            elif m["score"]["winner"] == "AWAY_TEAM":
+                if m["awayTeam"]["id"] == team1_id:
+                    score += 1
+                else:
+                    score -= 1
+    return score
 
 # ================= MATCHS =================
 @st.cache_data(ttl=300)
 def get_matches(date):
     comps = ["PL","PD"]
     matches = []
-
     for c in comps:
         data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/matches?dateFrom={date}&dateTo={date}")
         if data and "matches" in data:
@@ -86,15 +126,34 @@ def predict(xg1, xg2):
 
 def analyse(home, away, stats):
     try:
-        h = stats.get(home, {"gf":38,"ga":38})
-        a = stats.get(away, {"gf":38,"ga":38})
+        h = stats.get(home)
+        a = stats.get(away)
+        if not h or not a:
+            return None
+
+        form_home = get_form(h["id"])
+        form_away = get_form(a["id"])
+        h2h = get_h2h(h["id"], a["id"])
 
         league_avg = 1.4
 
         xg1 = (h["gf"]/38) * (a["ga"]/38) / league_avg
         xg2 = (a["gf"]/38) * (h["ga"]/38) / league_avg
 
-        xg1 *= 1.2  # avantage domicile plus fort
+        # 🔥 bonus forme
+        if form_home > form_away:
+            xg1 *= 1.2
+        elif form_away > form_home:
+            xg2 *= 1.2
+
+        # 🔥 bonus H2H
+        if h2h > 0:
+            xg1 *= 1.1
+        elif h2h < 0:
+            xg2 *= 1.1
+
+        # domicile
+        xg1 *= 1.15
 
         xg1 = max(0.6, min(3.2, xg1))
         xg2 = max(0.6, min(3.2, xg2))
@@ -104,25 +163,26 @@ def analyse(home, away, stats):
         total = xg1 + xg2
         diff = abs(xg1 - xg2)
 
-        # 🎯 PICKS PLUS PRUDENTS
-        if total >= 3:
-            pick = "OVER 2.5"
-        elif diff > 0.7:
-            pick = "HOME" if xg1 > xg2 else "AWAY"
+        # 🎯 PICKS
+        if diff > 1.0:
+            pick = "🏆 HOME WIN" if xg1 > xg2 else "🏆 AWAY WIN"
+        elif diff > 0.5:
+            pick = "🔒 1X" if xg1 > xg2 else "🔒 X2"
+        elif total >= 3:
+            pick = "🔥 OVER 2.5"
+        elif total <= 2:
+            pick = "❄️ UNDER 2.5"
         else:
-            pick = "BTTS"
+            pick = "⚽ BTTS"
 
-        # 🧠 CONFIANCE PLUS RÉALISTE
-        confiance = int(60 + diff * 40)
+        confiance = int(60 + diff * 40 + (form_home - form_away)*2 + h2h*3)
+        confiance = max(55, min(90, confiance))
 
-        confiance = max(55, min(85, confiance))
-
-        # 🎯 FILTRE PIÈGE
         if diff < 0.3:
             badge = "🚨 À ÉVITER"
-        elif confiance >= 80:
-            badge = "💎 TRÈS BON"
-        elif confiance >= 70:
+        elif confiance >= 82:
+            badge = "💎 TRÈS FORT"
+        elif confiance >= 72:
             badge = "✅ BON"
         else:
             badge = "⚠️ RISQUÉ"
@@ -170,7 +230,8 @@ st.subheader("💰 STRATÉGIE")
 mise = int(bankroll * 0.03)
 
 st.info(f"""
-👉 Joue seulement : 💎 TRÈS BON / ✅ BON  
+👉 Priorité : 🔒 Double chance + 🏆 Victoire  
+👉 Joue seulement : 💎 TRÈS FORT / ✅ BON  
 👉 Évite : ⚠️ RISQUÉ / 🚨 À ÉVITER  
 
 💵 Mise conseillée : {mise} FCFA  
