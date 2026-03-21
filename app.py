@@ -22,6 +22,14 @@ st.markdown("""
 
 st.title("⚽ BAKARY AI PRO MAX ULTIME 🧠🔥")
 
+# ================= VIP =================
+vip = st.sidebar.selectbox("🔐 Accès", ["Gratuit", "VIP"])
+
+if vip == "VIP":
+    st.success("💎 Mode VIP activé")
+else:
+    st.warning("🔒 Mode gratuit (accès limité)")
+
 # ================= CONFIG =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
@@ -31,7 +39,6 @@ bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
 
 # ================= DATE =================
 choix = st.sidebar.selectbox("📅 Choisir la date", ["Aujourd'hui", "Demain"])
-
 selected_date = datetime.utcnow() if choix == "Aujourd'hui" else datetime.utcnow() + timedelta(days=1)
 date_str = selected_date.strftime("%Y-%m-%d")
 
@@ -48,7 +55,6 @@ def safe_request(url):
             st.error("❌ Clé API invalide")
         elif r.status_code == 429:
             st.warning("⚠️ Limite API atteinte → attends 1 min")
-
     except:
         st.warning("⚠️ Erreur API")
 
@@ -63,14 +69,11 @@ def get_stats():
     for c in comps:
         data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/standings")
         if data and "standings" in data:
-            try:
-                for t in data["standings"][0]["table"]:
-                    teams[t["team"]["name"].strip()] = {
-                        "gf": t["goalsFor"],
-                        "ga": t["goalsAgainst"]
-                    }
-            except:
-                continue
+            for t in data["standings"][0]["table"]:
+                teams[t["team"]["name"].strip()] = {
+                    "gf": t["goalsFor"],
+                    "ga": t["goalsAgainst"]
+                }
     return teams
 
 # ================= MATCHS =================
@@ -109,41 +112,49 @@ def analyse(home, away, stats):
         xg1 = (h["gf"]/38) * (a["ga"]/38) / league_avg
         xg2 = (a["gf"]/38) * (h["ga"]/38) / league_avg
 
-        # 🔥 avantage domicile
-        xg1 *= 1.1
+        xg1 *= 1.15
 
-        xg1 = max(0.5, min(3.5, xg1))
-        xg2 = max(0.5, min(3.5, xg2))
+        xg1 = max(0.6, min(3.5, xg1))
+        xg2 = max(0.6, min(3.5, xg2))
 
         scores = predict(xg1, xg2)
+
         total = xg1 + xg2
         diff = abs(xg1 - xg2)
 
-        if xg1 > 1.3 and xg2 > 1.3:
-            pick = "🔥 BTTS"
-        elif total > 2.7:
+        if total >= 3:
             pick = "🔥 OVER 2.5"
-        elif xg1 > xg2:
+        elif xg1 > xg2 + 0.4:
             pick = "🏠 HOME"
-        else:
+        elif xg2 > xg1 + 0.4:
             pick = "✈️ AWAY"
+        else:
+            pick = "⚽ BTTS"
 
-        confiance = int(60 + diff * 30)
+        # 🔥 NOUVELLE CONFIANCE
+        confiance = int(60 + diff * 50 + (total/3)*10)
 
-        if diff < 0.25:
+        if h["gf"] > a["ga"]:
+            confiance += 5
+
+        confiance = max(55, min(92, confiance))
+
+        if diff < 0.3:
             badge = "🚨 PIÈGE"
-        elif confiance >= 80:
+        elif confiance >= 85:
             badge = "💎 ULTRA SAFE"
         elif confiance >= 75:
             badge = "💎 SAFE"
-        else:
+        elif confiance >= 65:
             badge = "⚠️ MOYEN"
+        else:
+            badge = "❌ RISQUÉ"
 
         return {
             "match": f"{home} vs {away}",
             "score": ", ".join([s[0] for s in scores]),
             "pick": pick,
-            "conf": max(55, min(95, confiance)),
+            "conf": confiance,
             "badge": badge
         }
 
@@ -164,70 +175,68 @@ if not matches:
     matches = get_matches(next_day)
     st.warning(f"⚠️ Aucun match aujourd'hui → demain ({next_day})")
 
-if not matches:
-    st.error("❌ Aucun match disponible")
-    st.stop()
-
 results = []
 for m in matches:
     r = analyse(m["homeTeam"]["name"], m["awayTeam"]["name"], stats)
     if r:
         results.append(r)
 
-if not results:
-    st.warning("⚠️ Aucun match analysé")
-    st.stop()
+results = sorted(results, key=lambda x: x["conf"], reverse=True)
 
-safe = [r for r in results if r["conf"] >= 75 and "PIÈGE" not in r["badge"]]
-moyen = [r for r in results if 60 <= r["conf"] < 75]
+# ================= VIP LIMIT =================
+if vip == "Gratuit":
+    st.subheader("💎 TOP 1 MATCH GRATUIT")
+    for m in results[:1]:
+        st.success(f"{m['match']} → {m['pick']} ({m['conf']}%)")
+    st.error("🔒 Passe en VIP pour voir tous les matchs")
+else:
+    st.subheader(f"💎 TOP 3 MATCHS ({date_str})")
+    for m in results[:3]:
+        st.success(f"{m['match']} → {m['pick']} ({m['conf']}%)")
 
-if not safe:
-    st.warning("⚠️ Aucun SAFE → affichage complet")
-    safe = results
+# ================= AFFICHAGE =================
+def show(title, data):
+    st.subheader(title)
+    for m in data:
+        st.markdown(f"""
+        <div class="card">
+        ⚽ {m['match']}<br><br>
+        🎯 {m['score']}<br><br>
+        📊 {m['pick']}<br><br>
+        🏷️ {m['badge']}<br><br>
+        📈 {m['conf']}%
+        </div>
+        """, unsafe_allow_html=True)
 
-st.subheader(f"💎 TOP 3 MATCHS ({date_str})")
+ultra = [r for r in results if "ULTRA" in r["badge"]]
+safe = [r for r in results if "SAFE" in r["badge"] and "ULTRA" not in r["badge"]]
+moyen = [r for r in results if "MOYEN" in r["badge"]]
 
-for m in safe[:3]:
-    st.success(f"{m['match']} → {m['pick']} ({m['conf']}%)")
+show("💎 ULTRA SAFE", ultra)
+show("💎 SAFE", safe)
+show("⚠️ MOYEN", moyen)
 
-st.subheader("💎 MATCHS SAFE")
+# ================= WHATSAPP =================
+st.subheader("💰 ACCÈS VIP")
+st.markdown("""
+📲 Contact WhatsApp  
+👉 https://wa.me/22666267681  
 
-for m in safe:
-    st.markdown(f"""
-    <div class="card">
-    ⚽ {m['match']}<br><br>
-    🎯 {m['score']}<br><br>
-    📊 {m['pick']}<br><br>
-    🏷️ {m['badge']}<br><br>
-    📈 {m['conf']}%
-    </div>
-    """, unsafe_allow_html=True)
+💎 Prix :
+- 1 jour : 1000 FCFA
+- 1 semaine : 5000 FCFA
+- 1 mois : 15000 FCFA
+""")
 
-st.subheader("⚠️ MATCHS MOYENS")
+# ================= GAINS =================
+st.subheader("📈 SUIVI GAINS")
 
-for m in moyen:
-    st.markdown(f"""
-    <div class="card">
-    ⚽ {m['match']}<br><br>
-    🎯 {m['score']}<br><br>
-    📊 {m['pick']}<br><br>
-    🏷️ {m['badge']}<br><br>
-    📈 {m['conf']}%
-    </div>
-    """, unsafe_allow_html=True)
+if "gain_total" not in st.session_state:
+    st.session_state["gain_total"] = 0
 
-# ================= STRATEGIE =================
-st.subheader("💰 STRATÉGIE PRO")
-mise_auto = int(bankroll * 0.05)
-st.info(f"💵 Mise conseillée : {mise_auto}")
+gain = st.number_input("Entrer gain du jour (+ ou -)", value=0)
 
-# ================= HISTORIQUE =================
-st.subheader("📊 HISTORIQUE")
+if st.button("Valider gain"):
+    st.session_state["gain_total"] += gain
 
-if "history" not in st.session_state:
-    st.session_state["history"] = []
-
-st.session_state["history"].extend(safe[:3])
-
-for h in st.session_state["history"][-5:]:
-    st.write(f"{h['match']} → {h['pick']} ({h['conf']}%)")
+st.success(f"💰 Total gains : {st.session_state['gain_total']} FCFA")
