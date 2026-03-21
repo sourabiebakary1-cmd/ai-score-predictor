@@ -25,7 +25,7 @@ st.markdown("""
 
 st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX 🧠🔥</h1>", unsafe_allow_html=True)
 
-API_KEY = "TA_CLE_API_ICI"
+API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
 bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
@@ -49,7 +49,7 @@ def safe_request(url):
 # ================= STATS =================
 @st.cache_data(ttl=600)
 def get_stats():
-    comps = ["PL","PD"]
+    comps = ["PL","PD","SA","BL1","FL1"]
     teams = {}
     for c in comps:
         data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/standings")
@@ -62,60 +62,29 @@ def get_stats():
                 }
     return teams
 
-# ================= FORME =================
-@st.cache_data(ttl=600)
-def get_form(team_id):
-    data = safe_request(f"https://api.football-data.org/v4/teams/{team_id}/matches?status=FINISHED&limit=5")
-    if not data or "matches" not in data:
-        return 0
-
-    points = 0
-    for m in data["matches"]:
-        if m["score"]["winner"] == "HOME_TEAM":
-            if m["homeTeam"]["id"] == team_id:
-                points += 3
-        elif m["score"]["winner"] == "AWAY_TEAM":
-            if m["awayTeam"]["id"] == team_id:
-                points += 3
-        else:
-            points += 1
-    return points
-
-# ================= H2H =================
-@st.cache_data(ttl=600)
-def get_h2h(team1_id, team2_id):
-    data = safe_request(f"https://api.football-data.org/v4/teams/{team1_id}/matches?status=FINISHED&limit=10")
-    if not data or "matches" not in data:
-        return 0
-
-    score = 0
-    for m in data["matches"]:
-        if (m["homeTeam"]["id"] == team1_id and m["awayTeam"]["id"] == team2_id) or \
-           (m["homeTeam"]["id"] == team2_id and m["awayTeam"]["id"] == team1_id):
-
-            if m["score"]["winner"] == "HOME_TEAM":
-                if m["homeTeam"]["id"] == team1_id:
-                    score += 1
-                else:
-                    score -= 1
-            elif m["score"]["winner"] == "AWAY_TEAM":
-                if m["awayTeam"]["id"] == team1_id:
-                    score += 1
-                else:
-                    score -= 1
-    return score
-
 # ================= MATCHS =================
 @st.cache_data(ttl=300)
 def get_matches(date):
-    comps = ["PL","PD"]
+    comps = ["PL","PD","SA","BL1","FL1"]
     matches = []
+
     for c in comps:
         data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/matches?dateFrom={date}&dateTo={date}")
         if data and "matches" in data:
             for m in data["matches"]:
                 if m["status"] in ["SCHEDULED","TIMED"]:
                     matches.append(m)
+
+    # 🔥 si aucun match → demain
+    if len(matches) == 0:
+        tomorrow = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
+        for c in comps:
+            data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/matches?dateFrom={tomorrow}&dateTo={tomorrow}")
+            if data and "matches" in data:
+                for m in data["matches"]:
+                    if m["status"] in ["SCHEDULED","TIMED"]:
+                        matches.append(m)
+
     return matches
 
 # ================= IA =================
@@ -134,24 +103,10 @@ def analyse(home, away, stats):
         if not h or not a:
             return None
 
-        form_home = get_form(h["id"])
-        form_away = get_form(a["id"])
-        h2h = get_h2h(h["id"], a["id"])
-
         league_avg = 1.4
 
         xg1 = (h["gf"]/38) * (a["ga"]/38) / league_avg
         xg2 = (a["gf"]/38) * (h["ga"]/38) / league_avg
-
-        if form_home > form_away:
-            xg1 *= 1.2
-        elif form_away > form_home:
-            xg2 *= 1.2
-
-        if h2h > 0:
-            xg1 *= 1.1
-        elif h2h < 0:
-            xg2 *= 1.1
 
         xg1 *= 1.15
 
@@ -161,29 +116,24 @@ def analyse(home, away, stats):
         scores = predict(xg1, xg2)
 
         total = xg1 + xg2
-        diff = abs(xg1 - xg2)
 
-        # ✅ LOGIQUE CORRIGÉE
-        if total >= 2.7:
+        # 🔥 SIMPLE ET EFFICACE
+        if total >= 2.6:
             pick = "🔥 OVER 2.5"
-        elif diff > 0.8:
-            pick = "🏆 HOME WIN" if xg1 > xg2 else "🏆 AWAY WIN"
-        elif diff > 0.4:
-            pick = "🔒 1X" if xg1 > xg2 else "🔒 X2"
-        else:
+        elif total >= 2.2:
             pick = "⚽ BTTS"
+        else:
+            pick = "❄️ UNDER 2.5"
 
-        confiance = int(60 + (total * 5) + (diff * 20) + (form_home - form_away)*2)
-        confiance = max(55, min(90, confiance))
+        confiance = int(65 + total * 8)
+        confiance = max(60, min(90, confiance))
 
         if confiance >= 80:
             badge = "💎 TRÈS FORT"
         elif confiance >= 70:
             badge = "✅ BON"
-        elif confiance >= 60:
-            badge = "⚠️ RISQUÉ"
         else:
-            badge = "🚨 À ÉVITER"
+            badge = "⚠️ RISQUÉ"
 
         return {
             "match": f"{home} vs {away}",
@@ -199,9 +149,6 @@ def analyse(home, away, stats):
 # ================= RUN =================
 stats = get_stats()
 matches = get_matches(date_str)
-
-if len(matches) == 0:
-    st.error("❌ Aucun match trouvé aujourd’hui (vérifie API ou date)")
 
 results = []
 for m in matches:
@@ -237,8 +184,8 @@ mise = int(bankroll * 0.03)
 
 st.info(f"""
 👉 Priorité : 🔥 OVER 2.5  
-👉 Sécurité : 🔒 DOUBLE CHANCE  
-👉 Risqué : 🏆 VICTOIRE  
+👉 Alternative : ⚽ BTTS  
+👉 Évite : ❄️ UNDER  
 
 👉 Joue seulement : 💎 TRÈS FORT / ✅ BON  
 
