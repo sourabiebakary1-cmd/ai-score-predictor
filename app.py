@@ -5,7 +5,7 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 import time
 
-st.set_page_config(page_title="BAKARY AI PRO MAX (JOUEUR)", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX (OVER)", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
@@ -23,9 +23,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX 🧠🔥</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX 🔥 OVER</h1>", unsafe_allow_html=True)
 
-# 🔐 TA CLÉ API (mise directement)
+# 🔐 TA CLÉ API
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
@@ -76,6 +76,7 @@ def get_matches(date):
                 if m["status"] in ["SCHEDULED","TIMED"]:
                     matches.append(m)
 
+    # si aucun match → prendre demain automatiquement
     if len(matches) == 0:
         tomorrow = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
         for c in comps:
@@ -117,30 +118,19 @@ def analyse(home, away, stats):
 
         total = xg1 + xg2
 
-        # 🔥 SIMPLE ET EFFICACE
-        if total >= 2.3:
-            pick = "🔥 OVER 2.5"
-        elif total >= 2.0:
-            pick = "⚽ BTTS"
-        else:
-            pick = "❄️ UNDER 2.5"
+        # 🔥 ONLY OVER
+        if total < 2.1:
+            return None
 
         confiance = int(65 + total * 8)
-        confiance = max(60, min(90, confiance))
-
-        if confiance >= 80:
-            badge = "💎 TRÈS FORT"
-        elif confiance >= 70:
-            badge = "✅ BON"
-        else:
-            badge = "⚠️ RISQUÉ"
+        confiance = max(70, min(90, confiance))
 
         return {
             "match": f"{home} vs {away}",
             "score": ", ".join([s[0] for s in scores]),
-            "pick": pick,
+            "pick": "🔥 OVER 2.5",
             "conf": confiance,
-            "badge": badge
+            "badge": "💎 TRÈS FORT" if confiance >= 80 else "✅ BON"
         }
 
     except:
@@ -159,24 +149,19 @@ for m in matches:
 results = sorted(results, key=lambda x: x["conf"], reverse=True)
 
 # ================= AFFICHAGE =================
-st.subheader("🎯 MEILLEURS MATCHS")
+st.subheader("🔥 TOP 3 OVER 2.5")
 
-top_matches = [m for m in results if m["conf"] >= 70]
-
-if len(top_matches) < 3:
-    top_matches = results[:3]
-else:
-    top_matches = top_matches[:3]
+top_matches = results[:3]
 
 if len(top_matches) == 0:
-    st.warning("⚠️ Aucun match aujourd’hui")
+    st.warning("⚠️ Aucun bon match OVER aujourd’hui")
 else:
     for m in top_matches:
         st.markdown(f"""
         <div class="card">
         ⚽ {m['match']}<br><br>
         🎯 {m['score']}<br><br>
-        📊 {m['pick']}<br><br>
+        🔥 OVER 2.5<br><br>
         🏷️ {m['badge']}<br><br>
         📈 {m['conf']}%
         </div>
@@ -188,11 +173,9 @@ st.subheader("💰 STRATÉGIE")
 mise = int(bankroll * 0.03)
 
 st.info(f"""
-👉 Priorité : 🔥 OVER 2.5  
-👉 Alternative : ⚽ BTTS  
-👉 Évite : ❄️ UNDER  
-
-👉 Joue seulement : 💎 TRÈS FORT / ✅ BON  
+👉 Joue uniquement : 🔥 OVER 2.5  
+👉 Prends les 3 matchs en combiné  
+👉 Priorité : 💎 TRÈS FORT  
 
 💵 Mise conseillée : {mise} FCFA  
 """)
