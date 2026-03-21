@@ -5,7 +5,7 @@ from scipy.stats import poisson
 from datetime import datetime, timedelta
 import time
 
-st.set_page_config(page_title="BAKARY AI PRO MAX (OVER)", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX VIP", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
@@ -15,20 +15,30 @@ st.markdown("""
     color: white;
 }
 .card {
-    background: rgba(0,255,100,0.15);
-    padding:15px;
-    border-radius:12px;
-    margin-bottom:10px;
+    background: rgba(0,0,0,0.9);
+    padding:20px;
+    border-radius:18px;
+    margin-bottom:18px;
+}
+.free {
+    background: linear-gradient(90deg,#ff512f,#dd2476);
+    padding:20px;
+    border-radius:18px;
+    margin-bottom:20px;
+    text-align:center;
+    font-size:20px;
+    font-weight:bold;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX 🔥 OVER</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX VIP 💎🔥</h1>", unsafe_allow_html=True)
 
-# 🔐 TA CLÉ API
+# 🔐 TA CLÉ API (INCLUSE)
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
+# ================= SIDEBAR =================
 bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
 
 choix = st.sidebar.selectbox("📅 Date", ["Aujourd'hui", "Demain"])
@@ -76,7 +86,7 @@ def get_matches(date):
                 if m["status"] in ["SCHEDULED","TIMED"]:
                     matches.append(m)
 
-    # 🔥 fallback demain si vide
+    # fallback demain
     if len(matches) == 0:
         tomorrow = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
         for c in comps:
@@ -114,20 +124,21 @@ def analyse(home, away, stats):
         xg1 = max(0.6, min(3.2, xg1))
         xg2 = max(0.6, min(3.2, xg2))
 
-        scores = predict(xg1, xg2)
-
         total = xg1 + xg2
 
-        # 🔥 TOUJOURS OVER (plus jamais vide)
+        # 🔥 uniquement OVER
+        if total < 2.2:
+            return None
+
+        scores = predict(xg1, xg2)
+
         confiance = int(65 + total * 8)
-        confiance = max(60, min(90, confiance))
+        confiance = max(70, min(90, confiance))
 
         return {
             "match": f"{home} vs {away}",
             "score": ", ".join([s[0] for s in scores]),
-            "pick": "🔥 OVER 2.5",
-            "conf": confiance,
-            "badge": "💎 TRÈS FORT" if confiance >= 80 else "✅ BON"
+            "conf": confiance
         }
 
     except:
@@ -143,47 +154,62 @@ for m in matches:
     if r:
         results.append(r)
 
-# 🔥 tri + sécurité
 results = sorted(results, key=lambda x: x["conf"], reverse=True)
 
-# 🔥 toujours au moins 3 matchs
-if len(results) < 3:
-    results = results[:3]
-else:
-    results = results[:3]
+# ================= 🎁 MATCH GRATUIT =================
+st.subheader("🎁 MATCH GRATUIT DU JOUR")
 
-# ================= AFFICHAGE =================
-st.subheader("🔥 TOP 3 OVER 2.5")
-
-for m in results:
+if len(results) > 0:
+    free = results[0]
     st.markdown(f"""
-    <div class="card">
-    ⚽ {m['match']} ➤ 🔥 OVER 2.5 ({m['conf']}%)
+    <div class="free">
+    🔥 {free['match']} <br><br>
+    🎯 OVER 2.5 <br><br>
+    📈 Confiance {free['conf']}%
     </div>
     """, unsafe_allow_html=True)
+else:
+    st.warning("Aucun match disponible")
 
-# ================= STRATEGIE =================
-st.subheader("💰 STRATÉGIE")
+# ================= 🔥 TOP 3 =================
+st.subheader("🔥 TOP 3 OVER 2.5")
 
-mise = int(bankroll * 0.03)
+top_matches = results[:3]
 
-st.info(f"""
-👉 Joue uniquement : 🔥 OVER 2.5  
-👉 Prends les 3 matchs en combiné  
-👉 Priorité : 💎 TRÈS FORT  
+if len(top_matches) == 0:
+    st.warning("Aucun bon match aujourd’hui")
+else:
+    for m in top_matches:
+        st.markdown(f"""
+        <div class="card">
+        ⚽ {m['match']}<br><br>
+        🎯 {m['score']}<br><br>
+        🔥 OVER 2.5<br><br>
+        💎 Confiance {m['conf']}%
+        </div>
+        """, unsafe_allow_html=True)
 
-💵 Mise conseillée : {mise} FCFA  
+# ================= 💰 STRATÉGIE AUTO =================
+st.subheader("💰 STRATÉGIE INTELLIGENTE")
+
+mise = int(bankroll * 0.05)
+
+st.success(f"""
+👉 Mise automatique : {mise} FCFA  
+👉 Joue uniquement OVER 2.5  
+👉 Prends 1 à 2 matchs max  
+👉 Priorité : 💎 Confiance élevée  
 """)
 
-# ================= SUIVI =================
-st.subheader("📈 SUIVI")
+# ================= 📈 SUIVI =================
+st.subheader("📈 SUIVI GAINS")
 
 if "gain_total" not in st.session_state:
     st.session_state["gain_total"] = 0
 
 gain = st.number_input("Gain du jour (+ ou -)", value=0)
 
-if st.button("Valider"):
+if st.button("Valider gain"):
     st.session_state["gain_total"] += gain
 
 st.success(f"Total : {st.session_state['gain_total']} FCFA")
