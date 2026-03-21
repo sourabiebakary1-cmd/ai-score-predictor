@@ -44,10 +44,8 @@ def safe_request(url):
 
         if r.status_code == 200:
             return r.json()
-
         elif r.status_code == 403:
             st.error("❌ Clé API invalide")
-
         elif r.status_code == 429:
             st.warning("⚠️ Limite API atteinte → attends 1 min")
 
@@ -59,7 +57,7 @@ def safe_request(url):
 # ================= STATS =================
 @st.cache_data(ttl=600)
 def get_stats():
-    comps = ["PL","PD"]  # 🔥 réduit pour éviter blocage
+    comps = ["PL","PD"]
     teams = {}
 
     for c in comps:
@@ -67,7 +65,7 @@ def get_stats():
         if data and "standings" in data:
             try:
                 for t in data["standings"][0]["table"]:
-                    teams[t["team"]["name"]] = {
+                    teams[t["team"]["name"].strip()] = {
                         "gf": t["goalsFor"],
                         "ga": t["goalsAgainst"]
                     }
@@ -90,37 +88,52 @@ def get_matches(date):
     return matches
 
 # ================= IA =================
-def predict(xg1,xg2):
+def predict(xg1, xg2):
     matrix = np.outer(
-        [poisson.pmf(i,xg1) for i in range(5)],
-        [poisson.pmf(j,xg2) for j in range(5)]
+        [poisson.pmf(i, xg1) for i in range(5)],
+        [poisson.pmf(j, xg2) for j in range(5)]
     )
-    scores = [(f"{i}-{j}",matrix[i][j]) for i in range(5) for j in range(5)]
-    return sorted(scores,key=lambda x:x[1],reverse=True)[:3]
+    scores = [(f"{i}-{j}", matrix[i][j]) for i in range(5) for j in range(5)]
+    return sorted(scores, key=lambda x: x[1], reverse=True)[:3]
 
-def analyse(home,away,stats):
+def analyse(home, away, stats):
     try:
-        h = stats.get(home, {"gf":1.5,"ga":1.5})
-        a = stats.get(away, {"gf":1.5,"ga":1.5})
+        home = home.strip()
+        away = away.strip()
 
-        xg1 = max(0.8, min(3, (h["gf"]/10)-(a["ga"]/20)))
-        xg2 = max(0.8, min(3, (a["gf"]/10)-(h["ga"]/20)))
+        h = stats.get(home, {"gf":38,"ga":38})
+        a = stats.get(away, {"gf":38,"ga":38})
 
-        scores = predict(xg1,xg2)
+        league_avg = 1.4
+
+        xg1 = (h["gf"]/38) * (a["ga"]/38) / league_avg
+        xg2 = (a["gf"]/38) * (h["ga"]/38) / league_avg
+
+        # 🔥 avantage domicile
+        xg1 *= 1.1
+
+        xg1 = max(0.5, min(3.5, xg1))
+        xg2 = max(0.5, min(3.5, xg2))
+
+        scores = predict(xg1, xg2)
         total = xg1 + xg2
-        diff = abs(xg1-xg2)
+        diff = abs(xg1 - xg2)
 
-        if total > 2.7:
+        if xg1 > 1.3 and xg2 > 1.3:
+            pick = "🔥 BTTS"
+        elif total > 2.7:
             pick = "🔥 OVER 2.5"
         elif xg1 > xg2:
             pick = "🏠 HOME"
         else:
             pick = "✈️ AWAY"
 
-        confiance = int(55 + diff*35)
+        confiance = int(60 + diff * 30)
 
-        if diff < 0.3:
+        if diff < 0.25:
             badge = "🚨 PIÈGE"
+        elif confiance >= 80:
+            badge = "💎 ULTRA SAFE"
         elif confiance >= 75:
             badge = "💎 SAFE"
         else:
@@ -130,7 +143,7 @@ def analyse(home,away,stats):
             "match": f"{home} vs {away}",
             "score": ", ".join([s[0] for s in scores]),
             "pick": pick,
-            "conf": max(50,min(90,confiance)),
+            "conf": max(55, min(95, confiance)),
             "badge": badge
         }
 
@@ -165,8 +178,8 @@ if not results:
     st.warning("⚠️ Aucun match analysé")
     st.stop()
 
-safe = [r for r in results if r["conf"] >= 70 and "PIÈGE" not in r["badge"]]
-moyen = [r for r in results if 60 <= r["conf"] < 70]
+safe = [r for r in results if r["conf"] >= 75 and "PIÈGE" not in r["badge"]]
+moyen = [r for r in results if 60 <= r["conf"] < 75]
 
 if not safe:
     st.warning("⚠️ Aucun SAFE → affichage complet")
@@ -203,6 +216,18 @@ for m in moyen:
     </div>
     """, unsafe_allow_html=True)
 
+# ================= STRATEGIE =================
 st.subheader("💰 STRATÉGIE PRO")
 mise_auto = int(bankroll * 0.05)
 st.info(f"💵 Mise conseillée : {mise_auto}")
+
+# ================= HISTORIQUE =================
+st.subheader("📊 HISTORIQUE")
+
+if "history" not in st.session_state:
+    st.session_state["history"] = []
+
+st.session_state["history"].extend(safe[:3])
+
+for h in st.session_state["history"][-5:]:
+    st.write(f"{h['match']} → {h['pick']} ({h['conf']}%)")
