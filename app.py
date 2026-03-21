@@ -10,7 +10,10 @@ st.set_page_config(page_title="BAKARY AI PRO MAX (JOUEUR)", layout="wide")
 # ================= STYLE =================
 st.markdown("""
 <style>
-.stApp {background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);}
+.stApp {
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color: white;
+}
 .card {
     background: rgba(0,0,0,0.9);
     padding:20px;
@@ -20,9 +23,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI PRO MAX 🧠🔥")
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX 🧠🔥</h1>", unsafe_allow_html=True)
 
-API_KEY = "289e8418878e48c598507cf2b72338f5"
+API_KEY = "TA_CLE_API_ICI"
 headers = {"X-Auth-Token": API_KEY}
 
 bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
@@ -140,19 +143,16 @@ def analyse(home, away, stats):
         xg1 = (h["gf"]/38) * (a["ga"]/38) / league_avg
         xg2 = (a["gf"]/38) * (h["ga"]/38) / league_avg
 
-        # 🔥 bonus forme
         if form_home > form_away:
             xg1 *= 1.2
         elif form_away > form_home:
             xg2 *= 1.2
 
-        # 🔥 bonus H2H
         if h2h > 0:
             xg1 *= 1.1
         elif h2h < 0:
             xg2 *= 1.1
 
-        # domicile
         xg1 *= 1.15
 
         xg1 = max(0.6, min(3.2, xg1))
@@ -163,29 +163,27 @@ def analyse(home, away, stats):
         total = xg1 + xg2
         diff = abs(xg1 - xg2)
 
-        # 🎯 PICKS
-        if diff > 1.0:
-            pick = "🏆 HOME WIN" if xg1 > xg2 else "🏆 AWAY WIN"
-        elif diff > 0.5:
-            pick = "🔒 1X" if xg1 > xg2 else "🔒 X2"
-        elif total >= 3:
+        # ✅ LOGIQUE CORRIGÉE
+        if total >= 2.7:
             pick = "🔥 OVER 2.5"
-        elif total <= 2:
-            pick = "❄️ UNDER 2.5"
+        elif diff > 0.8:
+            pick = "🏆 HOME WIN" if xg1 > xg2 else "🏆 AWAY WIN"
+        elif diff > 0.4:
+            pick = "🔒 1X" if xg1 > xg2 else "🔒 X2"
         else:
             pick = "⚽ BTTS"
 
-        confiance = int(60 + diff * 40 + (form_home - form_away)*2 + h2h*3)
+        confiance = int(60 + (total * 5) + (diff * 20) + (form_home - form_away)*2)
         confiance = max(55, min(90, confiance))
 
-        if diff < 0.3:
-            badge = "🚨 À ÉVITER"
-        elif confiance >= 82:
+        if confiance >= 80:
             badge = "💎 TRÈS FORT"
-        elif confiance >= 72:
+        elif confiance >= 70:
             badge = "✅ BON"
-        else:
+        elif confiance >= 60:
             badge = "⚠️ RISQUÉ"
+        else:
+            badge = "🚨 À ÉVITER"
 
         return {
             "match": f"{home} vs {away}",
@@ -202,6 +200,9 @@ def analyse(home, away, stats):
 stats = get_stats()
 matches = get_matches(date_str)
 
+if len(matches) == 0:
+    st.error("❌ Aucun match trouvé aujourd’hui (vérifie API ou date)")
+
 results = []
 for m in matches:
     r = analyse(m["homeTeam"]["name"], m["awayTeam"]["name"], stats)
@@ -211,18 +212,23 @@ for m in matches:
 results = sorted(results, key=lambda x: x["conf"], reverse=True)
 
 # ================= AFFICHAGE =================
-st.subheader("🎯 MEILLEURS MATCHS DU JOUR")
+st.subheader("🎯 MEILLEURS MATCHS")
 
-for m in results[:5]:
-    st.markdown(f"""
-    <div class="card">
-    ⚽ {m['match']}<br><br>
-    🎯 {m['score']}<br><br>
-    📊 {m['pick']}<br><br>
-    🏷️ {m['badge']}<br><br>
-    📈 {m['conf']}%
-    </div>
-    """, unsafe_allow_html=True)
+top_matches = [m for m in results if m["conf"] >= 70][:3]
+
+if len(top_matches) == 0:
+    st.warning("⚠️ Aucun match fiable aujourd’hui")
+else:
+    for m in top_matches:
+        st.markdown(f"""
+        <div class="card">
+        ⚽ {m['match']}<br><br>
+        🎯 {m['score']}<br><br>
+        📊 {m['pick']}<br><br>
+        🏷️ {m['badge']}<br><br>
+        📈 {m['conf']}%
+        </div>
+        """, unsafe_allow_html=True)
 
 # ================= STRATEGIE =================
 st.subheader("💰 STRATÉGIE")
@@ -230,9 +236,11 @@ st.subheader("💰 STRATÉGIE")
 mise = int(bankroll * 0.03)
 
 st.info(f"""
-👉 Priorité : 🔒 Double chance + 🏆 Victoire  
+👉 Priorité : 🔥 OVER 2.5  
+👉 Sécurité : 🔒 DOUBLE CHANCE  
+👉 Risqué : 🏆 VICTOIRE  
+
 👉 Joue seulement : 💎 TRÈS FORT / ✅ BON  
-👉 Évite : ⚠️ RISQUÉ / 🚨 À ÉVITER  
 
 💵 Mise conseillée : {mise} FCFA  
 """)
