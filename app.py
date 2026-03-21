@@ -25,6 +25,7 @@ st.markdown("""
 
 st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX 🧠🔥</h1>", unsafe_allow_html=True)
 
+# 🔐 TA CLÉ API (mise directement)
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
@@ -75,7 +76,6 @@ def get_matches(date):
                 if m["status"] in ["SCHEDULED","TIMED"]:
                     matches.append(m)
 
-    # 🔥 si aucun match → demain
     if len(matches) == 0:
         tomorrow = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
         for c in comps:
@@ -118,9 +118,9 @@ def analyse(home, away, stats):
         total = xg1 + xg2
 
         # 🔥 SIMPLE ET EFFICACE
-        if total >= 2.6:
+        if total >= 2.3:
             pick = "🔥 OVER 2.5"
-        elif total >= 2.2:
+        elif total >= 2.0:
             pick = "⚽ BTTS"
         else:
             pick = "❄️ UNDER 2.5"
@@ -161,10 +161,15 @@ results = sorted(results, key=lambda x: x["conf"], reverse=True)
 # ================= AFFICHAGE =================
 st.subheader("🎯 MEILLEURS MATCHS")
 
-top_matches = [m for m in results if m["conf"] >= 70][:3]
+top_matches = [m for m in results if m["conf"] >= 70]
+
+if len(top_matches) < 3:
+    top_matches = results[:3]
+else:
+    top_matches = top_matches[:3]
 
 if len(top_matches) == 0:
-    st.warning("⚠️ Aucun match fiable aujourd’hui")
+    st.warning("⚠️ Aucun match aujourd’hui")
 else:
     for m in top_matches:
         st.markdown(f"""
