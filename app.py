@@ -208,9 +208,20 @@ def show(title, data):
         </div>
         """, unsafe_allow_html=True)
 
+# 🔥 GARANTIR DES MATCHS
 ultra = [r for r in results if "ULTRA" in r["badge"]]
 safe = [r for r in results if "SAFE" in r["badge"] and "ULTRA" not in r["badge"]]
 moyen = [r for r in results if "MOYEN" in r["badge"]]
+
+# 💡 SI VIDE → REMPLISSAGE AUTO
+if not ultra:
+    ultra = results[:1]
+
+if not safe:
+    safe = results[1:3]
+
+if not moyen:
+    moyen = results[3:6]
 
 show("💎 ULTRA SAFE", ultra)
 show("💎 SAFE", safe)
