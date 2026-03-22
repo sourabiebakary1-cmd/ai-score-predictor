@@ -9,6 +9,9 @@ DATA_FILE = "historique.csv"
 
 st.set_page_config(page_title="BAKARY AI XGBOOST PRO", layout="wide")
 
+# 🔒 cacher erreurs Streamlit
+st.set_option('client.showErrorDetails', False)
+
 # ================= STYLE =================
 st.markdown("""
 <style>
@@ -49,60 +52,72 @@ def get_form_boost():
 
 # ================= XGBOOST SIMULATION =================
 def xgboost_predict():
-    base_attack = random.uniform(1.2, 2.5)
-    base_defense = random.uniform(0.8, 2.0)
+    try:
+        base_attack = random.uniform(1.2, 2.5)
+        base_defense = random.uniform(0.8, 2.0)
 
-    # 🔥 simulation modèle
-    xg_home = base_attack + random.uniform(-0.5, 0.5)
-    xg_away = base_defense + random.uniform(-0.5, 0.5)
+        xg_home = base_attack + random.uniform(-0.5, 0.5)
+        xg_away = base_defense + random.uniform(-0.5, 0.5)
 
-    score_home = max(0, int(np.random.poisson(xg_home)))
-    score_away = max(0, int(np.random.poisson(xg_away)))
+        score_home = max(0, int(np.random.poisson(xg_home)))
+        score_away = max(0, int(np.random.poisson(xg_away)))
 
-    total = xg_home + xg_away
+        total = xg_home + xg_away
+        boost = get_form_boost()
 
-    # 🔥 boost historique
-    boost = get_form_boost()
+        proba = min((total * 20) + boost, 90)
 
-    proba = min((total * 20) + boost, 90)
+        btts = "OUI" if score_home > 0 and score_away > 0 else "NON"
+        over = "OUI" if total > 2.5 else "NON"
 
-    btts = "OUI" if score_home > 0 and score_away > 0 else "NON"
-    over = "OUI" if total > 2.5 else "NON"
+        if proba > 80:
+            conf = "🟢 IA FORTE"
+        elif proba > 70:
+            conf = "🟡 IA MOYENNE"
+        else:
+            conf = "🔴 IA RISQUE"
 
-    if proba > 80:
-        conf = "🟢 IA FORTE"
-    elif proba > 70:
-        conf = "🟡 IA MOYENNE"
-    else:
-        conf = "🔴 IA RISQUE"
+        return score_home, score_away, round(proba,2), conf, btts, over
 
-    return score_home, score_away, round(proba,2), conf, btts, over
+    except:
+        return 1, 1, 60, "🔴 ERREUR", "NON", "NON"
 
 # ================= GENERATE =================
 def generate_matches():
-    teams = [
-        ("Arsenal","Chelsea"),
-        ("PSG","Marseille"),
-        ("Real Madrid","Barcelona"),
-        ("Milan","Juventus"),
-        ("Bayern","Dortmund")
-    ]
+    try:
+        teams = [
+            ("Arsenal","Chelsea"),
+            ("PSG","Marseille"),
+            ("Real Madrid","Barcelona"),
+            ("Milan","Juventus"),
+            ("Bayern","Dortmund")
+        ]
 
-    results = []
+        results = []
 
-    for h,a in teams:
-        sh, sa, proba, conf, btts, over = xgboost_predict()
+        for h,a in teams:
+            sh, sa, proba, conf, btts, over = xgboost_predict()
 
-        results.append({
-            "match": f"{h} vs {a}",
-            "prediction": f"{sh}-{sa}",
-            "proba": proba,
-            "confidence": conf,
-            "btts": btts,
-            "over": over
-        })
+            results.append({
+                "match": f"{h} vs {a}",
+                "prediction": f"{sh}-{sa}",
+                "proba": proba,
+                "confidence": conf,
+                "btts": btts if btts else "NON",
+                "over": over if over else "NON"
+            })
 
-    return results
+        return results
+
+    except:
+        return [{
+            "match":"Erreur vs Système",
+            "prediction":"1-1",
+            "proba":50,
+            "confidence":"🔴 ERREUR",
+            "btts":"NON",
+            "over":"NON"
+        }]
 
 # ================= MAIN =================
 st.title("⚽ BAKARY AI XGBOOST PRO 🤖🔥")
@@ -113,53 +128,73 @@ if "results" not in st.session_state:
 if st.button("🔄 Actualiser IA"):
     st.session_state["results"] = generate_matches()
 
-best = sorted(st.session_state["results"], key=lambda x: x["proba"], reverse=True)
+best = sorted(st.session_state["results"], key=lambda x: x.get("proba",0), reverse=True)
 
 # ================= DISPLAY =================
 for i, r in enumerate(best):
 
-    color = "good" if r["proba"] > 75 else "mid" if r["proba"] > 65 else "low"
+    proba = r.get("proba", 0)
+    match = r.get("match", "Match inconnu")
+    prediction = r.get("prediction", "0-0")
+    confidence = r.get("confidence", "❓")
+    btts = r.get("btts", "NON")
+    over = r.get("over", "NON")
+
+    color = "good" if proba > 75 else "mid" if proba > 65 else "low"
 
     st.markdown(f"""
 <div class="card">
-<b>⚽ {r['match']}</b><br>
-🎯 Score IA: {r['prediction']}<br>
-📊 Probabilité: <span class="{color}">{r['proba']}%</span><br>
-🧠 {r['confidence']}<br>
-🔥 BTTS: {r['btts']}<br>
-⚽ Over 2.5: {r['over']}
+<b>⚽ {match}</b><br>
+🎯 Score IA: {prediction}<br>
+📊 Probabilité: <span class="{color}">{proba}%</span><br>
+🧠 {confidence}<br>
+🔥 BTTS: {btts}<br>
+⚽ Over 2.5: {over}
 </div>
 """, unsafe_allow_html=True)
 
     if st.button(f"💾 Save {i}", key=f"s{i}"):
-        new = pd.DataFrame([{
-            "match": r["match"],
-            "prediction": r["prediction"],
-            "result": "",
-            "win": random.choice([0,1])
-        }])
-        new.to_csv(DATA_FILE, mode="a", header=False, index=False)
-        st.success("IA mise à jour ✔️")
+        try:
+            new = pd.DataFrame([{
+                "match": match,
+                "prediction": prediction,
+                "result": "",
+                "win": random.choice([0,1])
+            }])
+            new.to_csv(DATA_FILE, mode="a", header=False, index=False)
+            st.success("IA mise à jour ✔️")
+        except:
+            st.error("Erreur sauvegarde")
 
 # ================= COMBINÉ =================
 st.subheader("💰 Ticket IA PRO")
 
-combo = [m for m in best if m["proba"] > 70][:3]
+combo = [m for m in best if m.get("proba",0) > 70][:3]
 
 for c in combo:
-    st.write(f"✅ {c['match']} ({c['proba']}%)")
-    st.write(f"👉 BTTS: {c['btts']} | Over: {c['over']}")
+    st.write(f"✅ {c.get('match','?')} ({c.get('proba',0)}%)")
+    st.write(f"👉 BTTS: {c.get('btts','NON')} | Over: {c.get('over','NON')}")
 
 # ================= HISTORIQUE =================
 st.subheader("📊 Historique IA")
 
-df = pd.read_csv(DATA_FILE)
+try:
+    df = pd.read_csv(DATA_FILE)
+except:
+    df = pd.DataFrame(columns=["match","prediction","result","win"])
+
 st.dataframe(df)
 
 if not df.empty:
-    rate = (df["win"].sum() / len(df)) * 100
-    st.write(f"📈 Performance IA: {round(rate,2)}%")
+    try:
+        rate = (df["win"].sum() / len(df)) * 100
+        st.write(f"📈 Performance IA: {round(rate,2)}%")
+    except:
+        st.write("Erreur calcul")
 
 if st.button("🗑 Reset IA"):
-    pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
-    st.success("Reset effectué")
+    try:
+        pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
+        st.success("Reset effectué")
+    except:
+        st.error("Erreur reset")
