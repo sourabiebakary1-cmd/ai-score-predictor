@@ -7,3 +7,8 @@ plotly
 fpdf
 matplotlib
 scikit-learn
+streamlit
+requests
+pandas
+scikit-learn
+xgboost
