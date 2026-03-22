@@ -7,9 +7,8 @@ import random
 # ================= CONFIG =================
 DATA_FILE = "historique.csv"
 
-st.set_page_config(page_title="BAKARY AI XGBOOST PRO MAX ULTIME", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX ULTIME", layout="wide")
 
-# 🔒 cacher erreurs
 st.set_option('client.showErrorDetails', False)
 
 # ================= STYLE =================
@@ -35,13 +34,21 @@ st.markdown("""
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
 
+# ================= SAFE READ =================
+def load_data():
+    try:
+        df = pd.read_csv(DATA_FILE)
+        return df
+    except:
+        return pd.DataFrame(columns=["match","prediction","result","win"])
+
 # ================= BANKROLL =================
 if "bankroll" not in st.session_state:
     st.session_state["bankroll"] = 10000
 
 def bet_strategy(proba):
     if proba > 80:
-        return 0.1
+        return 0.08
     elif proba > 70:
         return 0.05
     else:
@@ -49,18 +56,16 @@ def bet_strategy(proba):
 
 # ================= IA LEARNING =================
 def get_form_boost():
+    df = load_data()
+
+    if len(df) < 10:
+        return 0
+
     try:
-        df = pd.read_csv(DATA_FILE)
-
-        if len(df) < 10:
-            return 0
-
         wins = df["win"].sum()
         rate = wins / len(df)
-
-        boost = (rate - 0.5) * 20
-        return max(min(boost, 10), -10)
-
+        boost = (rate - 0.5) * 15
+        return max(min(boost, 8), -8)
     except:
         return 0
 
@@ -69,23 +74,25 @@ def xgboost_predict():
     try:
         form = get_form_boost()
 
-        attack_strength = random.uniform(0.9, 1.5) + (form/50)
-        defense_weakness = random.uniform(0.9, 1.5)
+        # ⚖️ xG réaliste
+        xg_home = np.clip(random.uniform(0.8, 2.2) + form/30, 0.5, 3)
+        xg_away = np.clip(random.uniform(0.7, 2.0), 0.5, 3)
 
-        xg_home = attack_strength * random.uniform(0.8, 1.8)
-        xg_away = defense_weakness * random.uniform(0.8, 1.6)
+        # 🎯 scores limités (IMPORTANT)
+        score_home = min(int(np.random.poisson(xg_home)), 4)
+        score_away = min(int(np.random.poisson(xg_away)), 4)
 
-        score_home = int(np.random.poisson(xg_home))
-        score_away = int(np.random.poisson(xg_away))
+        total_goals = score_home + score_away
 
-        total = xg_home + xg_away
+        # 📊 proba réaliste
+        base_proba = (xg_home + xg_away) / 4 * 100
+        proba = np.clip(base_proba + form, 55, 85)
 
-        base_proba = (total / 3.5) * 100
-        proba = np.clip(base_proba + form, 50, 90)
-
+        # 🎯 marchés
         btts = "OUI" if score_home > 0 and score_away > 0 else "NON"
-        over = "OUI" if (score_home + score_away) > 2 else "NON"
+        over = "OUI" if total_goals >= 3 else "NON"
 
+        # 🧠 confiance
         if proba > 78:
             conf = "🟢 IA FORTE"
         elif proba > 68:
@@ -99,8 +106,8 @@ def xgboost_predict():
         return 1, 1, 60, "🔴 ERREUR", "NON", "NON"
 
 # ================= MATCH PIÈGE =================
-def is_trap_match(proba, btts, over):
-    if proba > 80 and (btts == "NON" or over == "NON"):
+def is_trap_match(proba, score_home, score_away):
+    if proba > 80 and (score_home >= 4 or score_away >= 4):
         return True
     return False
 
@@ -122,6 +129,8 @@ def generate_matches():
         results.append({
             "match": f"{h} vs {a}",
             "prediction": f"{sh}-{sa}",
+            "score_home": sh,
+            "score_away": sa,
             "proba": proba,
             "confidence": conf,
             "btts": btts,
@@ -131,7 +140,7 @@ def generate_matches():
     return results
 
 # ================= MAIN =================
-st.title("⚽ BAKARY AI XGBOOST PRO MAX ULTIME 🤖🔥")
+st.title("⚽ BAKARY AI PRO MAX ULTIME 🤖🔥")
 
 st.subheader(f"💰 Bankroll: {st.session_state['bankroll']} FCFA")
 
@@ -174,18 +183,18 @@ for i, r in enumerate(best):
 </div>
 """, unsafe_allow_html=True)
 
-    # ⚠️ détection piège
-    if is_trap_match(proba, btts, over):
-        st.warning(f"⚠️ MATCH PIÈGE: {match}")
+    # ⚠️ piège
+    if is_trap_match(proba, r["score_home"], r["score_away"]):
+        st.warning(f"⚠️ MATCH SUSPECT: {match}")
 
     # 💸 mise
     mise = int(st.session_state["bankroll"] * bet_strategy(proba))
     st.write(f"💸 Mise conseillée: {mise} FCFA")
 
-    # 💾 save
+    # 💾 sauvegarde
     if st.button(f"💾 Sauvegarder {i}", key=f"s{i}"):
         try:
-            df = pd.read_csv(DATA_FILE)
+            df = load_data()
 
             new_row = {
                 "match": match,
@@ -197,7 +206,7 @@ for i, r in enumerate(best):
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             df.to_csv(DATA_FILE, index=False)
 
-            st.success("✅ Sauvegardé + IA améliorée")
+            st.success("✅ Sauvegardé")
 
         except:
             st.error("Erreur sauvegarde")
@@ -205,7 +214,14 @@ for i, r in enumerate(best):
 # ================= MATCHS FIABLES =================
 st.subheader("🔥 MATCHS ULTRA FIABLES")
 
-safe_matches = [m for m in best if m["proba"] > 75 and m["btts"]=="OUI" and m["over"]=="OUI"]
+safe_matches = [
+    m for m in best 
+    if m["proba"] > 75 
+    and m["btts"]=="OUI" 
+    and m["over"]=="OUI"
+    and m["score_home"] <= 3
+    and m["score_away"] <= 3
+]
 
 if safe_matches:
     for m in safe_matches:
@@ -216,22 +232,20 @@ else:
 # ================= SUPER TICKET =================
 st.subheader("🔥 SUPER TICKET ULTRA SAFE")
 
-ultra = [m for m in best if m["proba"] > 78 and m["btts"]=="OUI" and m["over"]=="OUI"]
+ultra = [
+    m for m in best 
+    if m["proba"] > 78 
+    and m["btts"]=="OUI" 
+    and m["over"]=="OUI"
+]
 
-if ultra:
-    for m in ultra[:2]:
-        st.success(f"✅ {m['match']} ({m['proba']}%)")
-else:
-    st.warning("Pas de ticket ultra safe aujourd’hui")
+for m in ultra[:2]:
+    st.success(f"✅ {m['match']} ({m['proba']}%)")
 
 # ================= HISTORIQUE =================
 st.subheader("📊 Historique IA")
 
-try:
-    df = pd.read_csv(DATA_FILE)
-except:
-    df = pd.DataFrame(columns=["match","prediction","result","win"])
-
+df = load_data()
 st.dataframe(df)
 
 if not df.empty:
