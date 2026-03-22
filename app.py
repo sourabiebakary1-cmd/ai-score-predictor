@@ -8,7 +8,7 @@ import os
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 DATA_FILE = "historique.csv"
 
-st.set_page_config(page_title="BAKARY AI ULTIME", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX FINAL", layout="wide")
 
 # ================= STYLE =================
 st.markdown("""
@@ -22,7 +22,7 @@ st.markdown("""
 
 # ================= INIT =================
 if not os.path.exists(DATA_FILE):
-    pd.DataFrame(columns=["match","prediction","proba"]).to_csv(DATA_FILE, index=False)
+    pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
 
 # ================= API =================
 def get_matches():
@@ -75,8 +75,9 @@ def predict_match(h_att, h_def, a_att, a_def):
     lam_home = (h_att + a_def) / 2
     lam_away = (a_att + h_def) / 2
 
-    score_home = round(lam_home)
-    score_away = round(lam_away)
+    # 🔥 variation réaliste
+    score_home = max(0, int(np.random.normal(lam_home, 0.7)))
+    score_away = max(0, int(np.random.normal(lam_away, 0.7)))
 
     total = lam_home + lam_away
     proba = min((1 - np.exp(-total)) * 100, 85)
@@ -90,6 +91,7 @@ def generate_matches():
     matches = get_matches()
     results = []
 
+    # MODE SECOURS
     if not matches:
         fake = [
             ("Arsenal","Chelsea"),
@@ -100,12 +102,17 @@ def generate_matches():
         ]
 
         for h,a in fake:
+            sh = np.random.randint(1,4)
+            sa = np.random.randint(0,3)
+            proba = np.random.randint(60,80)
+
             results.append({
                 "match": f"{h} vs {a}",
-                "prediction": "2-1",
-                "proba": np.random.randint(60,80),
+                "prediction": f"{sh}-{sa}",
+                "proba": proba,
                 "confidence": "🔥🔥"
             })
+
         return results
 
     for m in matches:
@@ -135,8 +142,8 @@ def generate_matches():
 
     return results
 
-# ================= UI =================
-st.title("⚽ BAKARY AI ULTIME 🧠🔥")
+# ================= MAIN =================
+st.title("⚽ BAKARY AI PRO MAX FINAL 🔥")
 
 if "results" not in st.session_state:
     st.session_state["results"] = generate_matches()
@@ -145,9 +152,10 @@ if st.button("🔄 Actualiser"):
     st.session_state["results"] = generate_matches()
 
 # ================= DISPLAY =================
-best_bets = []
+best = sorted(st.session_state["results"], key=lambda x: x["proba"], reverse=True)
 
-for r in st.session_state["results"]:
+for i, r in enumerate(best):
+
     st.markdown(f"""
 ### ⚽ {r['match']}
 
@@ -157,19 +165,30 @@ for r in st.session_state["results"]:
 ---
 """)
 
-    if r["proba"] > 70:
-        best_bets.append(r["match"])
+    if st.button(f"💾 Sauvegarder {i}", key=f"save_{i}"):
+        new = pd.DataFrame([{
+            "match": r["match"],
+            "prediction": r["prediction"],
+            "result": "",
+            "win": 0
+        }])
+        new.to_csv(DATA_FILE, mode="a", header=False, index=False)
+        st.success("Ajouté")
 
 # ================= COMBINÉ =================
-st.subheader("💰 Ticket Combiné")
+st.subheader("💰 Ticket Combiné PRO")
 
-if best_bets:
-    for b in best_bets:
-        st.write("✅", b)
-else:
-    st.write("Aucun bon combiné aujourd’hui")
+combo = best[:3]
+
+for c in combo:
+    st.write(f"✅ {c['match']} ({c['proba']}%)")
 
 # ================= HISTORIQUE =================
 st.subheader("📊 Historique")
 df = pd.read_csv(DATA_FILE)
 st.dataframe(df)
+
+# RESET
+if st.button("🗑 Reset historique"):
+    pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
+    st.success("Historique supprimé")
