@@ -6,15 +6,14 @@ from datetime import datetime
 from xgboost import XGBClassifier
 from scipy.stats import poisson
 
-st.set_page_config(page_title="BAKARY AI PRO MAX FINAL", layout="wide")
+st.set_page_config(page_title="BAKARY AI AUTO PRO", layout="wide")
 
-st.title("⚽ BAKARY AI PRO MAX FINAL 🔥🧠")
+st.title("⚽ BAKARY AI AUTO PRO 🔥🧠")
 
 # ================= CONFIG =================
 bankroll = st.sidebar.number_input("💰 Bankroll", value=10000)
 date = st.sidebar.date_input("📅 Date", datetime.today())
 
-# ================= API =================
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
 HEADERS = {
@@ -22,65 +21,82 @@ HEADERS = {
     "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
 }
 
-# ================= TELEGRAM =================
-def send_telegram(msg):
-    try:
-        TOKEN = "TON_TOKEN"
-        CHAT_ID = "TON_CHAT_ID"
-        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-    except:
-        pass
-
-# ================= LOAD DATA =================
+# ================= AUTO DATASET =================
 @st.cache_data
-def load_data():
-    try:
-        return pd.read_csv("dataset_pro.csv")
-    except:
-        st.error("❌ dataset_pro.csv manquant")
-        st.stop()
+def create_dataset():
+    all_data = []
 
-df = load_data()
+    leagues = [39, 140]
+    season = 2023
 
-# ================= FEATURES DATASET =================
-def create_features(df):
-    df["attack_diff"] = df["home_goals"] - df["away_goals"]
-    df["defense_diff"] = df["away_goals"] - df["home_goals"]
-    df["total"] = df["home_goals"] + df["away_goals"]
+    for league in leagues:
+        url = "https://api-football-v1.p.rapidapi.com/v3/fixtures"
+        params = {"league": league, "season": season}
+
+        try:
+            res = requests.get(url, headers=HEADERS, params=params)
+
+            if res.status_code != 200:
+                continue
+
+            data = res.json().get("response", [])
+
+            for match in data:
+                try:
+                    if match["fixture"]["status"]["short"] != "FT":
+                        continue
+
+                    home_goals = match["goals"]["home"]
+                    away_goals = match["goals"]["away"]
+
+                    total = home_goals + away_goals
+
+                    over25 = 1 if total > 2 else 0
+
+                    all_data.append([
+                        home_goals,
+                        away_goals,
+                        total,
+                        over25
+                    ])
+                except:
+                    continue
+        except:
+            continue
+
+    df = pd.DataFrame(all_data, columns=[
+        "home_goals","away_goals","total","over25"
+    ])
+
     return df
 
-df = create_features(df)
+df = create_dataset()
 
 # ================= MODEL =================
 @st.cache_resource
-def train_model():
-    try:
-        X = df[["attack_diff", "defense_diff", "total"]]
-        y = df["over25"]
+def train_model(df):
+    X = df[["home_goals","away_goals","total"]]
+    y = df["over25"]
 
-        model = XGBClassifier(n_estimators=150, max_depth=5)
-        model.fit(X, y)
-        return model
-    except:
-        st.error("❌ Erreur modèle IA")
-        st.stop()
+    model = XGBClassifier(n_estimators=120)
+    model.fit(X, y)
 
-model = train_model()
+    return model
 
-# ================= API =================
+model = train_model(df)
+
+# ================= API MATCH =================
 def get_matches():
+    url = "https://api-football-v1.p.rapidapi.com/v3/fixtures"
+    params = {"date": date.strftime('%Y-%m-%d')}
+
     try:
-        url = "https://api-football-v1.p.rapidapi.com/v3/fixtures"
-        params = {"date": date.strftime('%Y-%m-%d')}
         res = requests.get(url, headers=HEADERS, params=params)
 
         if res.status_code != 200:
-            st.error(f"❌ Erreur API: {res.status_code}")
             return []
 
-        data = res.json()
-        return data.get("response", [])
+        return res.json().get("response", [])
     except:
         return []
 
@@ -97,30 +113,25 @@ def get_stats(team_id, league):
     except:
         return None
 
-# ================= FEATURES MATCH =================
+# ================= FEATURES =================
 def compute_features(stats_home, stats_away):
     try:
         h_for = float(stats_home["goals"]["for"]["average"]["total"])
-        h_against = float(stats_home["goals"]["against"]["average"]["total"])
-
         a_for = float(stats_away["goals"]["for"]["average"]["total"])
-        a_against = float(stats_away["goals"]["against"]["average"]["total"])
 
-        attack_diff = h_for - a_against
-        defense_diff = a_for - h_against
         total = h_for + a_for
 
-        return attack_diff, defense_diff, total
+        return h_for, a_for, total
     except:
-        return 0, 0, 2.2
+        return 1.2, 1.2, 2.4
 
-# ================= SCORE EXACT =================
+# ================= SCORE =================
 def predict_score(home_xg, away_xg):
     best = (0, 0)
     max_prob = 0
 
-    for i in range(6):
-        for j in range(6):
+    for i in range(5):
+        for j in range(5):
             prob = poisson.pmf(i, home_xg) * poisson.pmf(j, away_xg)
             if prob > max_prob:
                 max_prob = prob
@@ -128,19 +139,12 @@ def predict_score(home_xg, away_xg):
 
     return best
 
-# ================= VALUE BET =================
-def is_value(prob, odd):
-    try:
-        return prob > (1 / odd)
-    except:
-        return False
-
 # ================= ANALYSE =================
 matches = get_matches()
 results = []
 
 if not matches:
-    st.warning("🚫 JOUR DANGEREUX - Aucun match")
+    st.warning("🚫 Aucun match aujourd’hui")
 else:
     for m in matches:
         try:
@@ -154,29 +158,13 @@ else:
             stats_home = get_stats(home_id, league)
             stats_away = get_stats(away_id, league)
 
-            attack_diff, defense_diff, total = compute_features(stats_home, stats_away)
+            h_for, a_for, total = compute_features(stats_home, stats_away)
 
-            prob = model.predict_proba([[attack_diff, defense_diff, total]])[0][1]
+            prob = model.predict_proba([[h_for, a_for, total]])[0][1]
 
-            home_xg = max(0.5, total / 2)
-            away_xg = max(0.5, total / 2)
+            score = predict_score(h_for, a_for)
 
-            score = predict_score(home_xg, away_xg)
-
-            odd = 1.80  # tu peux changer ou connecter API cotes
-
-            # FILTRE ULTRA PRO
-            if prob > 0.72 and total > 2.5 and is_value(prob, odd):
-
-                msg = f"""
-💎 VIP ELITE 💎
-⚽ {home} vs {away}
-🎯 Score: {score[0]} - {score[1]}
-📊 Probabilité: {round(prob*100,2)}%
-🔥 VALUE BET
-"""
-                send_telegram(msg)
-
+            if prob > 0.70 and total > 2.4:
                 results.append({
                     "match": f"{home} vs {away}",
                     "score": f"{score[0]}-{score[1]}",
@@ -188,9 +176,9 @@ else:
 
 # ================= AFFICHAGE =================
 if not results:
-    st.error("❌ Aucun match VIP aujourd’hui")
+    st.error("❌ Aucun match fiable")
 else:
-    st.success(f"🔥 {len(results)} MATCHS ELITE")
+    st.success(f"🔥 {len(results)} MATCHS AUTO")
 
     for r in results:
         st.markdown(f"""
@@ -202,4 +190,4 @@ else:
 # ================= BANKROLL =================
 if results:
     stake = bankroll * 0.02
-    st.sidebar.write(f"💡 Mise PRO : {int(stake)} FCFA")
+    st.sidebar.write(f"💡 Mise : {int(stake)} FCFA")
