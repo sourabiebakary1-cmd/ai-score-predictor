@@ -2,150 +2,218 @@ import streamlit as st
 import requests
 import numpy as np
 from scipy.stats import poisson
+from datetime import datetime, timedelta
+import time
 
-st.set_page_config(page_title="BAKARY AI PRO MAX ELITE", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX ELITE V2", layout="wide")
 
-API_KEY = "289e8418878e48c598507cf2b72338f5"
+# ================= STYLE =================
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color: white;
+}
+.card {
+    background: rgba(0,0,0,0.9);
+    padding:20px;
+    border-radius:18px;
+    margin-bottom:18px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-st.title("⚽ BAKARY AI PRO MAX ELITE 🧠🔥")
+st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX V2 🧠🔥</h1>", unsafe_allow_html=True)
 
-st.warning("⚠️ Les paris comportent des risques.")
-st.info("📊 Analyse avancée (Poisson + IA)")
+# 🔑 TA CLÉ
+API_KEY = "TA_CLE_API_ICI"
+headers = {"X-Auth-Token": API_KEY}
+
+bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
+
+choix = st.sidebar.selectbox("📅 Date", ["Aujourd'hui", "Demain"])
+selected_date = datetime.utcnow() if choix == "Aujourd'hui" else datetime.utcnow() + timedelta(days=1)
+date_str = selected_date.strftime("%Y-%m-%d")
 
 # ================= API =================
-@st.cache_data(ttl=300)
-def get_matches():
-    url = "https://api.football-data.org/v4/matches"
-    headers = {"X-Auth-Token": API_KEY}
-
+@st.cache_data(ttl=600)
+def safe_request(url):
     try:
+        time.sleep(1)
         r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code != 200:
-            return []
-        return r.json().get("matches", [])
+        if r.status_code == 200:
+            return r.json()
     except:
-        return []
+        return None
+    return None
+
+# ================= STATS =================
+@st.cache_data(ttl=600)
+def get_stats():
+    comps = ["PL","PD"]
+    teams = {}
+    for c in comps:
+        data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/standings")
+        if data and "standings" in data:
+            for t in data["standings"][0]["table"]:
+                teams[t["team"]["name"].strip()] = {
+                    "gf": t["goalsFor"],
+                    "ga": t["goalsAgainst"],
+                    "id": t["team"]["id"]
+                }
+    return teams
+
+# ================= FORME =================
+@st.cache_data(ttl=600)
+def get_form(team_id):
+    data = safe_request(f"https://api.football-data.org/v4/teams/{team_id}/matches?status=FINISHED&limit=5")
+    if not data or "matches" not in data:
+        return 0
+
+    pts = 0
+    for m in data["matches"]:
+        if m["score"]["winner"] == "HOME_TEAM" and m["homeTeam"]["id"] == team_id:
+            pts += 3
+        elif m["score"]["winner"] == "AWAY_TEAM" and m["awayTeam"]["id"] == team_id:
+            pts += 3
+        else:
+            pts += 1
+    return pts
 
 # ================= POISSON =================
-def poisson_model(home_attack, away_attack):
-    max_goals = 5
-    matrix = np.zeros((max_goals, max_goals))
-
-    for i in range(max_goals):
-        for j in range(max_goals):
-            matrix[i][j] = poisson.pmf(i, home_attack) * poisson.pmf(j, away_attack)
-
+def predict_goals(xg1, xg2):
+    matrix = np.outer(
+        [poisson.pmf(i, xg1) for i in range(5)],
+        [poisson.pmf(j, xg2) for j in range(5)]
+    )
     return matrix
 
-# ================= ANALYSE =================
-def analyse_match(match):
+# ================= IA PRO =================
+def analyse(home, away, stats):
     try:
-        home = match.get("homeTeam", {}).get("name", "Equipe A")
-        away = match.get("awayTeam", {}).get("name", "Equipe B")
+        h = stats.get(home)
+        a = stats.get(away)
+        if not h or not a:
+            return None
 
-        # Valeurs simulées réalistes (évite bug API vide)
-        home_attack = np.random.uniform(1.2, 2.2)
-        away_attack = np.random.uniform(0.8, 1.8)
+        form_home = get_form(h["id"])
+        form_away = get_form(a["id"])
 
-        matrix = poisson_model(home_attack, away_attack)
+        xg1 = (h["gf"]/38) * (a["ga"]/38)
+        xg2 = (a["gf"]/38) * (h["ga"]/38)
 
-        # Probabilités
-        home_win = np.sum(np.tril(matrix, -1))
-        draw = np.sum(np.diag(matrix))
-        away_win = np.sum(np.triu(matrix, 1))
+        if form_home > form_away:
+            xg1 *= 1.2
+        else:
+            xg2 *= 1.2
 
-        over_25 = np.sum([matrix[i][j] for i in range(6) for j in range(6) if i+j > 2])
-        btts = np.sum([matrix[i][j] for i in range(1,6) for j in range(1,6)])
+        xg1 = max(0.6, min(3.5, xg1))
+        xg2 = max(0.6, min(3.5, xg2))
 
-        # Score exact probable
-        best_score = np.unravel_index(np.argmax(matrix), matrix.shape)
+        total = xg1 + xg2
+        diff = abs(xg1 - xg2)
 
-        proba = max(home_win, away_win)
+        # ================= SCORE =================
+        score = 0
+        if total > 2.5: score += 1
+        if total > 3: score += 1
+        if diff > 0.6: score += 1
+        if abs(form_home - form_away) >= 2: score += 1
+
+        # ================= PROBA =================
+        matrix = predict_goals(xg1, xg2)
+
+        prob_over15 = 1 - sum(matrix[i][j] for i in range(2) for j in range(2))
+        prob_over25 = 1 - sum(matrix[i][j] for i in range(3) for j in range(3))
+        prob_over35 = 1 - sum(matrix[i][j] for i in range(4) for j in range(4))
+
+        prob_btts = 1 - (matrix[0].sum() + matrix[:,0].sum() - matrix[0][0])
+
+        # ================= PICKS =================
+        if prob_over25 > 0.65:
+            pick = "🔥 OVER 2.5"
+        elif diff > 0.8:
+            pick = "🏆 WIN"
+        else:
+            pick = "🔒 DOUBLE CHANCE"
+
+        btts = "OUI" if prob_btts > 0.55 else "NON"
+
+        confiance = int(60 + score * 8 + prob_over25 * 20)
+        confiance = min(92, confiance)
+
+        if score < 2:
+            return None
 
         return {
             "match": f"{home} vs {away}",
-            "proba": proba,
-            "over25": over_25,
+            "score": f"{round(xg1)}-{round(xg2)}",
+            "pick": pick,
             "btts": btts,
-            "score_exact": f"{best_score[0]} - {best_score[1]}"
+            "over15": round(prob_over15*100),
+            "over25": round(prob_over25*100),
+            "over35": round(prob_over35*100),
+            "conf": confiance
         }
 
     except:
         return None
 
-# ================= DATA =================
-matches = get_matches()
+# ================= MATCHS =================
+@st.cache_data(ttl=300)
+def get_matches(date):
+    comps = ["PL","PD"]
+    matches = []
+    for c in comps:
+        data = safe_request(f"https://api.football-data.org/v4/competitions/{c}/matches?dateFrom={date}&dateTo={date}")
+        if data and "matches" in data:
+            for m in data["matches"]:
+                if m["status"] in ["SCHEDULED","TIMED"]:
+                    matches.append(m)
+    return matches
 
-analyses = []
+# ================= RUN =================
+stats = get_stats()
+matches = get_matches(date_str)
+
+results = []
 for m in matches:
-    r = analyse_match(m)
+    r = analyse(m["homeTeam"]["name"], m["awayTeam"]["name"], stats)
     if r:
-        analyses.append(r)
+        results.append(r)
 
-# ================= MATCH DU JOUR =================
-st.subheader("💎 MATCH DU JOUR")
+results = sorted(results, key=lambda x: x["conf"], reverse=True)
 
-if len(analyses) == 0:
-    st.error("❌ Aucun match disponible")
-else:
-    best = max(analyses, key=lambda x: x["proba"])
-    proba = best["proba"]
+# ================= FILTRE ANTI PERTE =================
+if len(results) < 2:
+    st.error("🚫 JOUR DANGEREUX → NE PAS PARIER")
+    st.stop()
 
-    if proba < 0.70:
-        st.error("🚫 JOUR OFF - NE PAS JOUER")
-        st.stop()
+# ================= TOP 3 =================
+st.subheader("🔥 TOP 3 MATCHS")
 
-    st.success(f"✅ {best['match']}")
-    st.progress(int(proba * 100))
-    st.write(f"📊 Confiance: {round(proba*100)}%")
+for r in results[:3]:
+    st.markdown(f"""
+    <div class="card">
+    ⚽ {r['match']}<br><br>
+    🎯 Score : {r['score']}<br><br>
+    📊 {r['pick']}<br><br>
+    ⚽ BTTS : {r['btts']}<br><br>
+    🔢 Over1.5 : {r['over15']}%<br>
+    🔢 Over2.5 : {r['over25']}%<br>
+    🔢 Over3.5 : {r['over35']}%<br><br>
+    📈 Confiance : {r['conf']}%
+    </div>
+    """, unsafe_allow_html=True)
 
-    # ================= PARIS =================
-    st.subheader("🎯 PRÉDICTIONS")
+# ================= STRATEGIE =================
+st.subheader("💰 STRATÉGIE PRO")
 
-    # Over/Under
-    if best["over25"] > 0.65:
-        st.write(f"⚽ Over 2.5 ✅ ({round(best['over25']*100)}%)")
-    else:
-        st.write(f"⚽ Under 2.5 ✅ ({round((1-best['over25'])*100)}%)")
-
-    # BTTS
-    if best["btts"] > 0.60:
-        st.write(f"🔥 BTTS OUI ({round(best['btts']*100)}%)")
-    else:
-        st.write(f"❌ BTTS NON ({round((1-best['btts'])*100)}%)")
-
-    # Score exact
-    st.write(f"🔢 Score probable: {best['score_exact']}")
-
-# ================= BANKROLL =================
-st.subheader("💰 GESTION ARGENT")
-
-bankroll = st.number_input("💰 Ton budget", value=10000)
 mise = int(bankroll * 0.02)
 
-st.success(f"💵 Mise conseillée: {mise} FCFA")
+st.info(f"""
+💵 Mise : {mise} FCFA  
 
-# ================= APPRENTISSAGE =================
-st.subheader("🧠 APPRENTISSAGE")
-
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-result = st.selectbox("Résultat du pari", ["Gagné", "Perdu"])
-
-if st.button("Enregistrer"):
-    st.session_state.history.append(result)
-
-wins = st.session_state.history.count("Gagné")
-losses = st.session_state.history.count("Perdu")
-
-total = wins + losses
-
-if total > 0:
-    winrate = wins / total * 100
-    st.write(f"📊 Winrate: {round(winrate)}%")
-    st.write(f"✅ Gagné: {wins} | ❌ Perdu: {losses}")
-
-# ================= DEBUG =================
-with st.expander("⚙️ DEBUG"):
-    st.write("Matchs:", len(matches))
+🎯 Jouer 1 à 2 matchs max  
+🚫 Stop si perte  
+""")
