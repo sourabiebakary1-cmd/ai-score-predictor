@@ -25,8 +25,7 @@ st.markdown("""
 
 st.markdown("<h1 style='text-align:center;'>⚽ BAKARY AI PRO MAX V2 🧠🔥</h1>", unsafe_allow_html=True)
 
-# 🔑 TA CLÉ
-API_KEY = "TA_CLE_API_ICI"
+# API_KEY = "289e8418878e48c598507cf2b72338f5"
 headers = {"X-Auth-Token": API_KEY}
 
 bankroll = st.sidebar.number_input("💼 Bankroll", value=10000)
