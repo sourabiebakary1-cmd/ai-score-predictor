@@ -1,148 +1,186 @@
 import streamlit as st
-import pandas as pd
+import requests
 import numpy as np
-from datetime import datetime
-from xgboost import XGBClassifier
+import pandas as pd
 from scipy.stats import poisson
-
-st.set_page_config(page_title="BAKARY AI PRO MAX", layout="wide")
-
-st.title("⚽ BAKARY AI PRO MAX 🔥🧠💰")
+import os
 
 # ================= CONFIG =================
-bankroll = st.sidebar.number_input("💰 Bankroll", value=10000)
-date = st.sidebar.date_input("📅 Date", datetime.today())
+API_KEY = "289e8418878e48c598507cf2b72338f5"
+DATA_FILE = "historique.csv"
 
-# ================= DATASET =================
-@st.cache_data
-def create_dataset():
-    np.random.seed(42)
+st.set_page_config(page_title="BAKARY AI GOD MODE", layout="wide")
 
-    df = pd.DataFrame({
-        "home_goals": np.random.randint(0, 4, 500),
-        "away_goals": np.random.randint(0, 4, 500),
-    })
+# ================= STYLE =================
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg,#000000,#1a1a1a,#2c5364);
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    df["total"] = df["home_goals"] + df["away_goals"]
-    df["over25"] = (df["total"] > 2).astype(int)
+# ================= INIT FILE =================
+if not os.path.exists(DATA_FILE):
+    pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
 
-    st.write("📊 Dataset:", len(df))
-    return df
+df = pd.read_csv(DATA_FILE)
 
-df = create_dataset()
+# ================= FUNCTIONS =================
 
-# ================= MODEL =================
-@st.cache_resource
-def train_model(df):
-    X = df[["home_goals","away_goals","total"]]
-    y = df["over25"]
-
-    model = XGBClassifier(n_estimators=120)
-    model.fit(X, y)
-
-    return model
-
-model = train_model(df)
-
-# ================= MATCHS SIMULÉS =================
 def get_matches():
-    teams = [
-        "Real Madrid", "Barcelona", "Arsenal", "Chelsea",
-        "PSG", "Bayern", "Juventus", "Milan",
-        "Liverpool", "Man City"
-    ]
+    url = "https://api.football-data.org/v4/matches"
+    headers = {"X-Auth-Token": API_KEY}
 
-    matches = []
-
-    for i in range(6):
-        home = np.random.choice(teams)
-        away = np.random.choice(teams)
-
-        if home != away:
-            matches.append({
-                "teams": {
-                    "home": {"name": home, "id": np.random.randint(1,100)},
-                    "away": {"name": away, "id": np.random.randint(1,100)}
-                }
-            })
-
-    return matches
-
-# ================= FEATURES =================
-def compute_features(home_id, away_id):
-    h_for = (home_id % 3) + np.random.uniform(0.8, 1.5)
-    a_for = (away_id % 3) + np.random.uniform(0.8, 1.5)
-    total = h_for + a_for
-    return h_for, a_for, total
-
-# ================= SCORE =================
-def predict_score(home_xg, away_xg):
-    best = (0, 0)
-    max_prob = 0
-
-    for i in range(5):
-        for j in range(5):
-            prob = poisson.pmf(i, home_xg) * poisson.pmf(j, away_xg)
-            if prob > max_prob:
-                max_prob = prob
-                best = (i, j)
-
-    return best
-
-# ================= ANALYSE =================
-matches = get_matches()
-results = []
-
-for m in matches:
     try:
-        home = m["teams"]["home"]["name"]
-        away = m["teams"]["away"]["name"]
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code != 200:
+            return []
+        data = res.json()
+        return data.get("matches", [])
+    except:
+        return []
 
-        home_id = m["teams"]["home"]["id"]
-        away_id = m["teams"]["away"]["id"]
+# -------- LEARNING --------
+def learning_adjustment(df):
+    if len(df) < 10:
+        return 1.0
+    win_rate = df["win"].mean()
+    if win_rate > 0.6:
+        return 1.1
+    elif win_rate < 0.4:
+        return 0.9
+    return 1.0
 
-        h_for, a_for, total = compute_features(home_id, away_id)
+# -------- POISSON --------
+def predict_score(lam_home, lam_away):
+    home = np.argmax([poisson.pmf(i, lam_home) for i in range(6)])
+    away = np.argmax([poisson.pmf(i, lam_away) for i in range(6)])
+    return home, away
 
-        prob = model.predict_proba([[h_for, a_for, total]])[0][1]
-        score = predict_score(h_for, a_for)
+# -------- PROBA --------
+def calcul_proba(lam_home, lam_away, adjust):
+    total = (lam_home + lam_away) * adjust
+    proba = 1 - np.exp(-total)
+    return min(proba * 100, 85)
 
-        if prob > 0.65 and total > 2.3:
+# -------- FILTRE --------
+def filtre_match(lh, la):
+    if lh + la < 2.3:
+        return False
+    if abs(lh - la) > 1.8:
+        return False
+    return True
+
+# -------- BTTS --------
+def btts(lh, la):
+    return "OUI" if lh > 1 and la > 1 else "NON"
+
+# -------- OVER --------
+def over25(lh, la):
+    return "OUI" if lh + la > 2.6 else "NON"
+
+# -------- CONFIDENCE --------
+def confidence(p):
+    if p > 75:
+        return "🔥🔥🔥"
+    elif p > 65:
+        return "🔥🔥"
+    return "🔥"
+
+# ================= SIDEBAR =================
+st.sidebar.title("💰 Bankroll")
+
+bankroll = st.sidebar.number_input("Montant", value=10000)
+mise = int(bankroll * 0.02)
+
+st.sidebar.write(f"Mise conseillée: {mise} FCFA")
+
+if len(df) > 0:
+    winrate = round(df["win"].mean() * 100, 2)
+    st.sidebar.write(f"Winrate: {winrate}%")
+
+# ================= MAIN =================
+st.title("⚽ BAKARY AI – GOD MODE 🔥")
+
+adjust = learning_adjustment(df)
+
+if st.button("🚀 Générer matchs fiables"):
+
+    matches = get_matches()
+
+    if not matches:
+        st.error("❌ API bloquée ou limite atteinte")
+    else:
+        results = []
+
+        for match in matches:
+
+            if match.get("status") != "SCHEDULED":
+                continue
+
+            home = match["homeTeam"]["name"]
+            away = match["awayTeam"]["name"]
+
+            # simulation stable
+            lam_home = np.random.uniform(1.0, 2.3)
+            lam_away = np.random.uniform(0.9, 2.1)
+
+            if not filtre_match(lam_home, lam_away):
+                continue
+
+            sh, sa = predict_score(lam_home, lam_away)
+            proba = calcul_proba(lam_home, lam_away, adjust)
+
             results.append({
                 "match": f"{home} vs {away}",
-                "score": f"{score[0]}-{score[1]}",
-                "prob": round(prob*100,2),
-                "btts": "OUI" if h_for > 1 and a_for > 1 else "NON",
-                "over25": "OUI" if total > 2.5 else "NON"
+                "score": f"{sh}-{sa}",
+                "proba": round(proba,2),
+                "btts": btts(lam_home, lam_away),
+                "over": over25(lam_home, lam_away)
             })
 
-    except:
-        continue
+            if len(results) >= 5:
+                break
 
-# ================= AFFICHAGE =================
-if not results:
-    st.warning("⚠️ Aucun match fort → Regénère")
-else:
-    st.success(f"🔥 {len(results)} MATCHS FIABLES")
+        # STOCKAGE SESSION
+        st.session_state["results"] = results
 
-    for r in results:
+# ================= DISPLAY =================
+if "results" in st.session_state:
+
+    for i, r in enumerate(st.session_state["results"]):
+
         st.markdown(f"""
 ### ⚽ {r['match']}
-- 🎯 Score : **{r['score']}**
-- 📊 Probabilité : **{r['prob']}%**
-- 🔥 BTTS : **{r['btts']}**
-- ⚽ Over 2.5 : **{r['over25']}**
+
+- 🎯 Score: {r['score']}
+- 📊 Probabilité: {r['proba']}%
+- 🧠 Confiance: {confidence(r['proba'])}
+- 🔥 BTTS: {r['btts']}
+- ⚽ Over 2.5: {r['over']}
+---
 """)
 
-# ================= BANKROLL =================
-if results:
-    stake = bankroll * 0.03
-    st.sidebar.write(f"💡 Mise conseillée : {int(stake)} FCFA")
+        if st.button(f"✅ Valider {i}", key=f"val_{i}"):
 
-# ================= UI PRO =================
-if st.button("🔄 Générer nouveaux matchs"):
-    st.rerun()
+            new = pd.DataFrame([{
+                "match": r["match"],
+                "prediction": r["score"],
+                "result": "",
+                "win": 0
+            }])
 
-st.sidebar.markdown("### 🧠 Conseils PRO")
-st.sidebar.write("✔ Jouer 2-3 matchs max")
-st.sidebar.write("✔ Éviter les petites cotes")
-st.sidebar.write("✔ Discipline = profit 💰")
+            new.to_csv(DATA_FILE, mode="a", header=False, index=False)
+            st.success("Ajouté à l'historique")
+
+# ================= HISTORIQUE =================
+st.subheader("📊 Historique")
+df = pd.read_csv(DATA_FILE)
+st.dataframe(df)
+
+# RESET
+if st.button("🗑 Reset historique"):
+    pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
+    st.success("Historique réinitialisé")
