@@ -49,8 +49,10 @@ def create_dataset():
                     home_goals = match["goals"]["home"]
                     away_goals = match["goals"]["away"]
 
-                    total = home_goals + away_goals
+                    if home_goals is None or away_goals is None:
+                        continue
 
+                    total = home_goals + away_goals
                     over25 = 1 if total > 2 else 0
 
                     all_data.append([
@@ -72,13 +74,23 @@ def create_dataset():
 
 df = create_dataset()
 
+# ✅ PROTECTION IMPORTANTE
+if df.empty:
+    st.error("❌ Erreur API : aucune donnée récupérée")
+    st.stop()
+
 # ================= MODEL =================
 @st.cache_resource
 def train_model(df):
     X = df[["home_goals","away_goals","total"]]
     y = df["over25"]
 
-    model = XGBClassifier(n_estimators=120)
+    # ✅ PROTECTION
+    if len(X) < 10:
+        st.error("❌ Pas assez de données pour entraîner le modèle")
+        st.stop()
+
+    model = XGBClassifier(n_estimators=100)
     model.fit(X, y)
 
     return model
@@ -118,9 +130,7 @@ def compute_features(stats_home, stats_away):
     try:
         h_for = float(stats_home["goals"]["for"]["average"]["total"])
         a_for = float(stats_away["goals"]["for"]["average"]["total"])
-
         total = h_for + a_for
-
         return h_for, a_for, total
     except:
         return 1.2, 1.2, 2.4
