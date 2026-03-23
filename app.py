@@ -26,12 +26,39 @@ st.title("⚽🔥 BAKARY AI PRO MAX (OVER ONLY)")
 today = datetime.now().strftime("%Y-%m-%d")
 st.info(f"📅 Matchs du jour : {today}")
 
-# ================= MATCHS (MANUEL) =================
-matches = [
-    {"match": "Liverpool vs Chelsea", "confidence": 85},
-    {"match": "Barcelona vs Real Madrid", "confidence": 82},
-    {"match": "PSG vs Marseille", "confidence": 80},
-]
+# ================= ADMIN =================
+st.sidebar.title("🔒 ADMIN")
+
+admin_password = st.sidebar.text_input("Mot de passe", type="password")
+
+if admin_password == "1234":
+    st.sidebar.success("Admin connecté")
+
+    match1 = st.sidebar.text_input("Match 1")
+    conf1 = st.sidebar.slider("Confiance 1", 50, 100, 85)
+
+    match2 = st.sidebar.text_input("Match 2")
+    conf2 = st.sidebar.slider("Confiance 2", 50, 100, 82)
+
+    match3 = st.sidebar.text_input("Match 3")
+    conf3 = st.sidebar.slider("Confiance 3", 50, 100, 80)
+
+    matches = []
+
+    if match1:
+        matches.append({"match": match1, "confidence": conf1})
+    if match2:
+        matches.append({"match": match2, "confidence": conf2})
+    if match3:
+        matches.append({"match": match3, "confidence": conf3})
+
+else:
+    # MATCHS PAR DÉFAUT
+    matches = [
+        {"match": "Liverpool vs Chelsea", "confidence": 85},
+        {"match": "Barcelona vs Real Madrid", "confidence": 82},
+        {"match": "PSG vs Marseille", "confidence": 80},
+    ]
 
 # ================= TOP MATCHS =================
 st.subheader("💎 TOP MATCHS")
@@ -45,7 +72,7 @@ for m in matches:
     </div>
     """, unsafe_allow_html=True)
 
-# ================= MESSAGE WHATSAPP =================
+# ================= MESSAGE =================
 message = "🔥 PRONOSTICS OVER 2.5 🔥\n\n"
 
 for m in matches:
@@ -57,7 +84,6 @@ st.subheader("📲 ENVOYER AUX CLIENTS")
 whatsapp_link = f"https://wa.me/22607093407?text={message}"
 st.markdown(f"[📤 Envoyer sur WhatsApp]({whatsapp_link})")
 
-# ================= COPIER MESSAGE =================
 st.text_area("📋 Copier message", message)
 
 # ================= VIP =================
@@ -65,7 +91,7 @@ st.subheader("💰 ACCÈS VIP")
 
 code = st.text_input("Entrer code VIP")
 
-if code == "1234":
+if code == "VIP2026":
     st.success("✅ Accès VIP activé")
 else:
     st.warning("🔒 Accès limité")
