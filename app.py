@@ -105,7 +105,7 @@ if not st.session_state.auth:
     paiement()
     st.stop()
 
-if datetime.now() > st.session_state.expire:
+if st.session_state.expire and datetime.now() > st.session_state.expire:
     st.error("⛔ Abonnement expiré")
     st.session_state.auth = False
     st.stop()
