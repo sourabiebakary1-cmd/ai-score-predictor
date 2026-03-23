@@ -1,187 +1,148 @@
 import streamlit as st
 import pandas as pd
 import os
-import random
 from datetime import datetime, timedelta
 import json
 import requests
-import numpy as np
 from scipy.stats import poisson
 
 # ================= CONFIG =================
 DATA_FILE = "historique.csv"
-CODES_FILE = "codes.json"
 OWNER_NUMBER = "22607093407"
-ADMIN_PASSWORD = "bakary2026VIP"
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
-st.set_page_config(page_title="BAKARY AI PRO MAX", layout="wide")
+st.set_page_config(page_title="BAKARY AI GOD MODE", layout="wide")
 
-# ================= FILES =================
-if not os.path.exists(DATA_FILE):
-    pd.DataFrame(columns=["match","prediction","date"]).to_csv(DATA_FILE, index=False)
+# ================= IA =================
+def poisson_pred(home_avg, away_avg):
+    matrix = [[poisson.pmf(i, home_avg)*poisson.pmf(j, away_avg)
+               for j in range(6)] for i in range(6)]
 
-if not os.path.exists(CODES_FILE):
-    with open(CODES_FILE, "w") as f:
-        json.dump({}, f)
+    home_win = sum(matrix[i][j] for i in range(6) for j in range(6) if i>j)
+    away_win = sum(matrix[i][j] for i in range(6) for j in range(6) if i<j)
+    over25 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=3)
 
-def load_codes():
-    try:
-        return json.load(open(CODES_FILE))
-    except:
-        return {}
+    best_score = "0-0"
+    max_prob = 0
+    for i in range(6):
+        for j in range(6):
+            if matrix[i][j] > max_prob:
+                max_prob = matrix[i][j]
+                best_score = f"{i}-{j}"
 
-def save_codes(c):
-    json.dump(c, open(CODES_FILE, "w"), indent=4)
+    return home_win, away_win, over25, best_score
 
-# ================= SESSION =================
-if "auth" not in st.session_state:
-    st.session_state.auth = False
-
-if "expire" not in st.session_state:
-    st.session_state.expire = None
-
-# ================= ADMIN =================
-st.sidebar.title("🔐 ADMIN")
-admin = st.sidebar.text_input("Mot de passe", type="password")
-
-if admin == ADMIN_PASSWORD:
-    st.sidebar.success("Admin connecté")
-
-    codes = load_codes()
-
-    if st.sidebar.button("🎟 Code 7j"):
-        code = "VIP" + str(random.randint(10000,99999))
-        codes[code] = {"used": False, "days": 7}
-        save_codes(codes)
-        st.sidebar.success(code)
-
-    if st.sidebar.button("🎟 Code 30j"):
-        code = "VIP" + str(random.randint(10000,99999))
-        codes[code] = {"used": False, "days": 30}
-        save_codes(codes)
-        st.sidebar.success(code)
-
-# ================= PAIEMENT =================
-def paiement():
-    st.title("💰 ACCÈS VIP")
-
-    st.write("💳 Orange Money / Moov / Telecel")
-    st.write("📞 Numéro :", OWNER_NUMBER)
-
-    link = f"https://wa.me/{OWNER_NUMBER}?text=Bonjour j'ai payé pour BAKARY AI"
-    st.markdown(f"[📲 Envoyer preuve WhatsApp]({link})")
-
-    code = st.text_input("Code VIP", type="password")
-
-    if st.button("Activer"):
-        codes = load_codes()
-
-        if code in codes and not codes[code]["used"]:
-            codes[code]["used"] = True
-            save_codes(codes)
-
-            st.session_state.auth = True
-            st.session_state.expire = datetime.now() + timedelta(days=codes[code]["days"])
-
-            st.success("✅ VIP activé")
-            st.rerun()
-        else:
-            st.error("❌ Code invalide")
-
-# ================= BLOQUAGE =================
-if not st.session_state.auth:
-    paiement()
-    st.stop()
-
-if st.session_state.expire is not None:
-    if datetime.now() > st.session_state.expire:
-        st.error("⛔ Expiré")
-        st.session_state.auth = False
-        st.stop()
-
-# ================= API STATS =================
-def get_team_stats(team_id, league_id):
-    try:
-        url = f"https://v3.football.api-sports.io/teams/statistics?league={league_id}&season=2023&team={team_id}"
-        headers = {"x-apisports-key": API_KEY}
-        res = requests.get(url, headers=headers, timeout=5).json()["response"]
-
-        scored = res["goals"]["for"]["average"]["total"]
-        conceded = res["goals"]["against"]["average"]["total"]
-
-        return float(scored), float(conceded)
-    except:
-        return 1.5, 1.5  # fallback
-
-# ================= MATCH =================
+# ================= API =================
 def get_matches():
     try:
         headers = {"x-apisports-key": API_KEY}
-        url = "https://v3.football.api-sports.io/fixtures?next=5"
-        res = requests.get(url, headers=headers, timeout=5).json()
-        if res.get("response"):
-            return res["response"]
+        url = "https://v3.football.api-sports.io/fixtures?next=10"
+        res = requests.get(url, headers=headers, timeout=10).json()
+        return res.get("response", [])
     except:
-        st.warning("⚠️ API indisponible")
+        return []
 
-    return []
+def get_form(team_id):
+    try:
+        headers = {"x-apisports-key": API_KEY}
+        url = f"https://v3.football.api-sports.io/fixtures?team={team_id}&last=5"
+        res = requests.get(url, headers=headers, timeout=10).json()["response"]
 
-# ================= IA =================
-def analyse(home_avg, away_avg):
-    home_win = home_avg / (home_avg + away_avg)
-    away_win = away_avg / (home_avg + away_avg)
+        points = 0
+        for m in res:
+            if m["teams"]["home"]["winner"]:
+                points += 3
+            elif m["teams"]["away"]["winner"]:
+                points += 3
+            else:
+                points += 1
 
-    over25 = (home_avg + away_avg) / 3
-    btts = min(home_avg, away_avg) / 2
+        return points / 15
+    except:
+        return 0.5
 
-    score = f"{round(home_avg)}-{round(away_avg)}"
+def get_h2h(home_id, away_id):
+    try:
+        headers = {"x-apisports-key": API_KEY}
+        url = f"https://v3.football.api-sports.io/fixtures/headtohead?h2h={home_id}-{away_id}&last=5"
+        res = requests.get(url, headers=headers, timeout=10).json()["response"]
 
-    return home_win, away_win, over25, btts, score
+        goals = 0
+        for m in res:
+            goals += m["goals"]["home"] + m["goals"]["away"]
+
+        return goals / 5
+    except:
+        return 2.5
 
 # ================= APP =================
-st.title("🔥 BAKARY AI PRO MAX (IA RÉELLE)")
+st.title("🔥 BAKARY AI GOD MODE (ULTIME)")
 
 matches = get_matches()
 
 if not matches:
-    st.error("❌ Aucun match (API limite ou clé)")
+    st.error("❌ API limitée ou aucun match")
     st.stop()
 
-for m in matches[:5]:
+message = "🔥 PRONOSTICS ULTRA FIABLE 🔥\n\n"
+selected = []
+
+# ================= ANALYSE =================
+for m in matches:
+
     home = m["teams"]["home"]["name"]
     away = m["teams"]["away"]["name"]
 
     home_id = m["teams"]["home"]["id"]
     away_id = m["teams"]["away"]["id"]
-    league_id = m["league"]["id"]
 
     st.subheader(f"{home} vs {away}")
 
-    home_avg, home_conc = get_team_stats(home_id, league_id)
-    away_avg, away_conc = get_team_stats(away_id, league_id)
+    form_home = get_form(home_id)
+    form_away = get_form(away_id)
+    h2h_goals = get_h2h(home_id, away_id)
 
-    home_win, away_win, over25, btts, score = analyse(home_avg, away_avg)
+    home_avg = 1.2 + form_home
+    away_avg = 1.2 + form_away
 
-    if home_win > 0.6:
+    home_win, away_win, over25, score = poisson_pred(home_avg, away_avg)
+
+    # 🎯 DECISION ULTRA
+    if home_win > 0.65 and form_home > form_away:
         bet = "Victoire domicile"
         conf = home_win
-    elif away_win > 0.6:
+    elif away_win > 0.65 and form_away > form_home:
         bet = "Victoire extérieur"
         conf = away_win
-    elif over25 > 0.7:
+    elif over25 > 0.7 or h2h_goals > 2.5:
         bet = "Over 2.5"
         conf = over25
-    elif btts > 0.6:
-        bet = "BTTS OUI"
-        conf = btts
     else:
-        bet = "Match risqué"
-        conf = max(home_win, away_win)
+        continue  # 🔥 ignore mauvais match
 
-    st.write(f"🏠 {round(home_win*100,1)}% | 🚀 {round(away_win*100,1)}%")
-    st.write(f"⚽ Over2.5: {round(over25*100,1)}% | 🔥 BTTS: {round(btts*100,1)}%")
+    selected.append((home, away, bet, conf, score))
 
-    st.success(f"🎯 Score: {score}")
-    st.error(f"💰 PARI SÛR: {bet}")
-    st.info(f"📊 Confiance: {round(conf*100,1)}%")
+# ================= TOP 3 =================
+selected = sorted(selected, key=lambda x: x[3], reverse=True)[:3]
+
+if not selected:
+    st.warning("⚠️ Aucun match fiable aujourd’hui")
+    st.stop()
+
+# ================= AFFICHAGE =================
+for home, away, bet, conf, score in selected:
+
+    st.success(f"{home} vs {away}")
+    st.write(f"🎯 Score: {score}")
+    st.write(f"💰 Pari: {bet}")
+    st.write(f"📊 Confiance: {round(conf*100,1)}%")
+
+    message += f"{home} vs {away}\n{bet} ({round(conf*100,1)}%)\n🎯 {score}\n\n"
+
+# ================= WHATSAPP =================
+st.subheader("📱 ENVOI CLIENT")
+
+link = f"https://wa.me/?text={message}"
+st.markdown(f"[📤 Envoyer WhatsApp]({link})")
+
+st.text_area("Message", message, height=250)
