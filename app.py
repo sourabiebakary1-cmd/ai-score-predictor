@@ -4,7 +4,7 @@ import os
 from scipy.stats import poisson
 import urllib.parse
 
-st.set_page_config(page_title="BAKARY AI ULTIMATE", layout="wide")
+st.set_page_config(page_title="BAKARY AI ULTRA MAX", layout="wide")
 
 DATA_FILE = "data.csv"
 
@@ -32,7 +32,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🔥 BAKARY AI ULTIMATE 🤖💎")
+st.title("🔥 BAKARY AI ULTRA MAX 🤖💎")
 
 # ================= BASE =================
 teams = {
@@ -41,44 +41,42 @@ teams = {
     "Chelsea": (1.5,1.3),"Bayern": (2.3,1.0),"Dortmund": (1.9,1.4)
 }
 
-# ================= DATA =================
 data = load_data()
 
+# ================= BOOST GLOBAL =================
 win_rate = 0.5
 if len(data) > 0:
     win_rate = (data["result"] == "WIN").mean()
 
 global_boost = 1 + (win_rate - 0.5)
-st.info(f"🌍 Boost global: {round(global_boost,2)}")
+st.info(f"🌍 Boost IA: {round(global_boost,2)}")
 
-# ================= TEAM LEARNING =================
+# ================= IA LEARNING =================
 team_stats = {}
 
 for _, row in data.iterrows():
-    for t in [row["team_home"], row["team_away"]]:
+    home = row["team_home"]
+    away = row["team_away"]
+
+    for t in [home, away]:
         if t not in team_stats:
-            team_stats[t] = {"win":0,"total":0}
+            team_stats[t] = {"attack":1,"defense":1,"win":0,"total":0}
+
         team_stats[t]["total"] += 1
+
         if row["result"] == "WIN":
             team_stats[t]["win"] += 1
+            team_stats[t]["attack"] += 0.05
+        else:
+            team_stats[t]["defense"] += 0.05
 
-def team_boost(team):
+def get_boost(team):
     if team in team_stats and team_stats[team]["total"] > 2:
-        rate = team_stats[team]["win"] / team_stats[team]["total"]
-        return 1 + (rate - 0.5)
-    return 1
-
-# ================= MATCH FACILE =================
-def is_easy_match(home, away):
-    hf, ha = teams.get(home, (1.5,1.5))
-    af, aa = teams.get(away, (1.5,1.5))
-
-    if hf > 1.8 and aa > 1.3:
-        return True
-    if af > 1.8 and ha > 1.3:
-        return True
-
-    return False
+        atk = team_stats[team]["attack"]
+        dfc = team_stats[team]["defense"]
+        wr = team_stats[team]["win"]/team_stats[team]["total"]
+        return atk*(1+(wr-0.5)), dfc
+    return 1,1
 
 # ================= IA =================
 def analyse(home, away):
@@ -86,11 +84,11 @@ def analyse(home, away):
     hf, ha = teams.get(home, (1.5,1.5))
     af, aa = teams.get(away, (1.5,1.5))
 
-    bh = team_boost(home)
-    ba = team_boost(away)
+    bh_atk, bh_def = get_boost(home)
+    ba_atk, ba_def = get_boost(away)
 
-    home_avg = ((hf + aa)/2)*bh
-    away_avg = ((af + ha)/2)*ba
+    home_avg = ((hf*bh_atk)+(aa*ba_def))/2
+    away_avg = ((af*ba_atk)+(ha*bh_def))/2
 
     matrix = [[poisson.pmf(i, home_avg)*poisson.pmf(j, away_avg)
                for j in range(6)] for i in range(6)]
@@ -102,31 +100,40 @@ def analyse(home, away):
     over15 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=2)
     over25 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=3)
 
+    # 🔥 BTTS
+    btts = sum(matrix[i][j] for i in range(1,6) for j in range(1,6))
+
+    # 🔥 SCORE EXACT
+    best_score = max([(i,j,matrix[i][j]) for i in range(6) for j in range(6)], key=lambda x:x[2])
+
     options = {
         "Over 1.5": over15,
         "Over 2.5": over25,
+        "BTTS OUI": btts,
         "Victoire Domicile": hw,
         "Victoire Extérieur": aw
     }
 
     best = max(options, key=options.get)
-    conf = options[best] * global_boost
+
+    conf = min(options[best]*global_boost,0.95)
     conf_percent = round(conf*100,1)
 
-    diff = abs(hw - aw)
+    diff = abs(hw-aw)
 
-    if diff < 0.1:
-        risk = "PIÈGE ÉLEVÉ"
-    elif draw > 0.28:
+    # 🔥 PIÈGE PRO
+    if diff < 0.07:
+        risk = "GROS PIÈGE"
+    elif draw > 0.32:
         risk = "MATCH BLOQUÉ"
-    elif conf_percent > 70:
+    elif conf_percent > 78:
+        risk = "ULTRA FIABLE"
+    elif conf_percent > 68:
         risk = "FIABLE"
-    elif conf_percent > 60:
-        risk = "MOYEN"
     else:
         risk = "RISQUÉ"
 
-    return best, conf_percent, risk
+    return best, conf_percent, risk, btts, best_score
 
 # ================= INPUT =================
 st.sidebar.title("⚙️ AJOUT MATCH")
@@ -141,58 +148,39 @@ for i in range(4):
 
 # ================= ANALYSE =================
 results = []
-safe_matches = []
+combo = []
 
 for home, away in matchs:
 
-    bet, conf, risk = analyse(home, away)
+    bet, conf, risk, btts, score = analyse(home, away)
 
-    if risk == "PIÈGE ÉLEVÉ":
-        color = "bad"
-    elif risk == "FIABLE":
-        color = "good"
-    else:
-        color = "warn"
+    color = "good" if "FIABLE" in risk else "bad" if "PIÈGE" in risk else "warn"
 
     st.markdown(f"""
     <div class="block">
     <h3>{home} vs {away}</h3>
     💰 {bet}<br>
     📊 {conf}%<br>
+    ⚽ BTTS: {round(btts*100,1)}%<br>
+    🎯 Score: {score[0]} - {score[1]}<br>
     ⚠️ <span class="{color}">{risk}</span>
     </div>
     """, unsafe_allow_html=True)
 
     results.append((home, away, bet, risk, conf))
 
-    if risk == "FIABLE":
-        safe_matches.append((home, away, bet, conf))
+    if "FIABLE" in risk:
+        combo.append((home, away, bet, conf))
 
-# ================= ULTRA SAFE =================
-st.markdown("## 💎 MATCH ULTRA SÛR")
+# ================= COMBINÉ =================
+st.markdown("## 💰 COMBINÉ INTELLIGENT")
 
-if safe_matches:
-    best = max(safe_matches, key=lambda x: x[3])
-    st.success(f"{best[0]} vs {best[1]} → {best[2]} ({best[3]}%)")
+if combo:
+    combo_sorted = sorted(combo, key=lambda x:x[3], reverse=True)[:3]
+    txt = " + ".join([f"{c[0]} vs {c[1]} ({c[2]})" for c in combo_sorted])
+    st.success(f"🔥 COMBINÉ: {txt}")
 else:
-    st.warning("Aucun match sûr")
-
-# ================= PARI SÛR DIRECT =================
-st.markdown("## 🎯 PARI SÛR DIRECT")
-
-best_safe = None
-best_score = 0
-
-for home, away, bet, risk, conf in results:
-    if risk == "FIABLE" and is_easy_match(home, away):
-        if conf > best_score:
-            best_score = conf
-            best_safe = (home, away, bet, conf)
-
-if best_safe:
-    st.success(f"🔥 PARI SÛR: {best_safe[0]} vs {best_safe[1]} → {best_safe[2]} ({best_safe[3]}%)")
-else:
-    st.warning("❌ Aucun pari sûr aujourd'hui")
+    st.warning("Aucun combiné fiable")
 
 # ================= SAVE =================
 st.markdown("## ✅ ENREGISTRER")
@@ -228,7 +216,7 @@ else:
     st.warning("Pas de données")
 
 # ================= WHATSAPP =================
-message = "🔥 BAKARY AI ULTIMATE 🔥\n\n"
+message = "🔥 BAKARY AI ULTRA MAX 🔥\n\n"
 for r in results:
     message += f"{r[0]} vs {r[1]} → {r[2]} ({r[3]})\n"
 
