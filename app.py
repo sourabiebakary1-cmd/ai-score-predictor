@@ -1,97 +1,158 @@
 import streamlit as st
+import requests
 from datetime import datetime
+from scipy.stats import poisson
+import urllib.parse
 
-st.set_page_config(page_title="BAKARY AI PRO MAX (OVER ONLY)", layout="wide")
+# ================= CONFIG =================
+API_KEY = "289e8418878e48c598507cf2b72338f5"
 
-# ================= STYLE =================
+st.set_page_config(page_title="BAKARY AI", layout="wide")
+
+# ================= STYLE PRO =================
 st.markdown("""
 <style>
+
 .stApp {
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     color: white;
 }
-.card {
-    background: #0b0b0b;
+
+h1 {
+    text-align: center;
+    font-size: 40px;
+}
+
+h2, h3 {
+    color: #00ffcc;
+}
+
+.block {
+    background-color: #111;
     padding: 15px;
     border-radius: 15px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0px 0px 10px rgba(0,255,200,0.3);
 }
+
+.stButton>button {
+    background: linear-gradient(45deg,#00ffcc,#00ccff);
+    color: black;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-# ================= TITRE =================
-st.title("⚽🔥 BAKARY AI PRO MAX (OVER ONLY)")
+# ================= LOGO =================
+try:
+    st.image("logo.png", width=120)
+except:
+    st.warning("Ajoute logo.png dans le dossier")
 
-# ================= DATE =================
-today = datetime.now().strftime("%Y-%m-%d")
-st.info(f"📅 Matchs du jour : {today}")
+st.title("🔥 BAKARY AI PRO")
 
-# ================= ADMIN =================
-st.sidebar.title("🔒 ADMIN")
+# ================= MENU =================
+menu = st.sidebar.radio("📱 MENU", ["🏠 Accueil", "🎯 Pronostics", "📲 WhatsApp"])
 
-admin_password = st.sidebar.text_input("Mot de passe", type="password")
+# ================= POISSON =================
+def poisson_pred(home_avg, away_avg):
+    matrix = [[poisson.pmf(i, home_avg)*poisson.pmf(j, away_avg)
+               for j in range(6)] for i in range(6)]
 
-if admin_password == "1234":
-    st.sidebar.success("Admin connecté")
+    over25 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=3)
 
-    match1 = st.sidebar.text_input("Match 1")
-    conf1 = st.sidebar.slider("Confiance 1", 50, 100, 85)
+    best_score = "0-0"
+    max_prob = 0
 
-    match2 = st.sidebar.text_input("Match 2")
-    conf2 = st.sidebar.slider("Confiance 2", 50, 100, 82)
+    for i in range(6):
+        for j in range(6):
+            if matrix[i][j] > max_prob:
+                max_prob = matrix[i][j]
+                best_score = f"{i}-{j}"
 
-    match3 = st.sidebar.text_input("Match 3")
-    conf3 = st.sidebar.slider("Confiance 3", 50, 100, 80)
+    return over25, best_score
 
-    matches = []
+# ================= API =================
+def get_matches():
+    try:
+        url = "https://v3.football.api-sports.io/fixtures?date=" + datetime.now().strftime("%Y-%m-%d")
+        headers = {"x-apisports-key": API_KEY}
+        res = requests.get(url, headers=headers, timeout=10)
 
-    if match1:
-        matches.append({"match": match1, "confidence": conf1})
-    if match2:
-        matches.append({"match": match2, "confidence": conf2})
-    if match3:
-        matches.append({"match": match3, "confidence": conf3})
+        if res.status_code == 200:
+            return res.json()["response"]
+    except:
+        st.warning("⚠️ Mode offline")
 
-else:
-    # MATCHS PAR DÉFAUT
-    matches = [
-        {"match": "Liverpool vs Chelsea", "confidence": 85},
-        {"match": "Barcelona vs Real Madrid", "confidence": 82},
-        {"match": "PSG vs Marseille", "confidence": 80},
-    ]
+    return []
 
-# ================= TOP MATCHS =================
-st.subheader("💎 TOP MATCHS")
+# ================= ACCUEIL =================
+if menu == "🏠 Accueil":
+    st.markdown("## 💎 Bienvenue")
+    st.success("Application IA de pronostics football")
+    st.info("Analyse intelligente + Match Ultra sûr 🔥")
 
-for m in matches:
-    st.markdown(f"""
-    <div class="card">
-        ⚽ {m['match']} <br><br>
-        🔥 OVER 2.5 <br><br>
-        📊 Confiance: {m['confidence']}%
-    </div>
-    """, unsafe_allow_html=True)
+# ================= PRONOSTICS =================
+elif menu == "🎯 Pronostics":
 
-# ================= MESSAGE =================
-message = "🔥 PRONOSTICS OVER 2.5 🔥\n\n"
+    st.markdown("## 🎯 MATCHS DU JOUR")
 
-for m in matches:
-    message += f"{m['match']} → OVER 2.5 ({m['confidence']}%)\n"
+    matches = get_matches()
+    message = "🔥 PRONOSTICS 🔥\n\n"
+
+    best_match = None
+    best_conf = 0
+
+    for m in matches[:5]:
+
+        try:
+            home = m["teams"]["home"]["name"]
+            away = m["teams"]["away"]["name"]
+        except:
+            continue
+
+        home_avg = 1.6
+        away_avg = 1.2
+
+        prob, score = poisson_pred(home_avg, away_avg)
+        conf = round(prob * 100, 1)
+
+        if conf < 65:
+            continue
+
+        st.markdown(f"""
+        <div class="block">
+        <h3>{home} vs {away}</h3>
+        🎯 Score probable: {score}<br>
+        📊 Confiance: {conf}%<br>
+        💰 Pari: Over 2.5
+        </div>
+        """, unsafe_allow_html=True)
+
+        message += f"{home} vs {away} → Over 2.5 ({conf}%)\n\n"
+
+        if conf > best_conf:
+            best_conf = conf
+            best_match = f"{home} vs {away} ({conf}%)"
+
+    st.markdown("## 💎 MATCH ULTRA SÛR")
+
+    if best_match:
+        st.success(best_match)
+    else:
+        st.warning("Aucun match fiable")
 
 # ================= WHATSAPP =================
-st.subheader("📲 ENVOYER AUX CLIENTS")
+elif menu == "📲 WhatsApp":
 
-whatsapp_link = f"https://wa.me/22607093407?text={message}"
-st.markdown(f"[📤 Envoyer sur WhatsApp]({whatsapp_link})")
+    st.markdown("## 📲 ENVOYER PRONOSTICS")
 
-st.text_area("📋 Copier message", message)
+    message = "🔥 PRONOSTICS BAKARY AI 🔥"
 
-# ================= VIP =================
-st.subheader("💰 ACCÈS VIP")
+    encoded = urllib.parse.quote(message)
+    link = f"https://wa.me/?text={encoded}"
 
-code = st.text_input("Entrer code VIP")
-
-if code == "VIP2026":
-    st.success("✅ Accès VIP activé")
-else:
-    st.warning("🔒 Accès limité")
+    st.markdown(f"[📤 Envoyer WhatsApp]({link})")
+    st.text_area("Message", message)
