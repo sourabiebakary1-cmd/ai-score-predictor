@@ -11,9 +11,11 @@ from scipy.stats import poisson
 # ================= CONFIG =================
 DATA_FILE = "historique.csv"
 CODES_FILE = "codes.json"
-OWNER_NUMBER = "22607093407"
+OWNER_NUMBER = "22607093407"  # ton numéro OK
 ADMIN_PASSWORD = "bakary2026VIP"
 API_KEY = "289e8418878e48c598507cf2b72338f5"
+
+MODE_TEST = True  # 🔥 IMPORTANT (mets False après)
 
 st.set_page_config(page_title="BAKARY AI PRO MAX ULTRA", layout="wide")
 
@@ -23,7 +25,7 @@ if not os.path.exists(DATA_FILE):
 
 if not os.path.exists(CODES_FILE):
     with open(CODES_FILE, "w") as f:
-        json.dump({}, f)
+        json.dump({"VIP12345": {"used": False, "days": 30}}, f)
 
 def load_codes():
     return json.load(open(CODES_FILE))
@@ -41,7 +43,8 @@ if "expire" not in st.session_state:
 # ================= VIP =================
 def paiement():
     st.title("💰 ACCÈS VIP")
-    link = f"https://wa.me/{OWNER_NUMBER}?text=Bonjour j'ai payé"
+
+    link = f"https://wa.me/{OWNER_NUMBER}?text=Bonjour j'ai payé pour BAKARY AI"
     st.markdown(f"[📞 Envoyer preuve WhatsApp]({link})")
 
     num = st.text_input("Numéro")
@@ -49,21 +52,27 @@ def paiement():
 
     if st.button("Activer"):
         codes = load_codes()
+
         if code in codes and not codes[code]["used"]:
             codes[code]["used"] = True
             save_codes(codes)
 
             st.session_state.auth = True
             st.session_state.expire = datetime.now() + timedelta(days=codes[code]["days"])
+
             st.success("VIP activé 🔥")
         else:
             st.error("Code invalide ❌")
+
+# 🔓 MODE TEST (très important)
+if MODE_TEST:
+    st.session_state.auth = True
 
 if not st.session_state.auth:
     paiement()
     st.stop()
 
-if datetime.now() > st.session_state.expire:
+if st.session_state.expire and datetime.now() > st.session_state.expire:
     st.error("Accès expiré ❌")
     st.session_state.auth = False
     st.stop()
@@ -80,7 +89,6 @@ def poisson_pred(home_avg, away_avg):
     over25 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=3)
     btts = sum(matrix[i][j] for i in range(1,6) for j in range(1,6))
 
-    # score probable
     max_prob = 0
     best_score = "0-0"
     for i in range(6):
@@ -97,9 +105,12 @@ def get_team_stats(team_id, league_id):
     headers = {"x-apisports-key": API_KEY}
 
     try:
-        data = requests.get(url, headers=headers).json()["response"]
+        res = requests.get(url, headers=headers).json()
+        data = res.get("response", {})
+
         scored = data["goals"]["for"]["total"]["home"] / max(1, data["fixtures"]["played"]["home"])
         conceded = data["goals"]["against"]["total"]["away"] / max(1, data["fixtures"]["played"]["away"])
+
         return scored, conceded
     except:
         return 1.3, 1.3
@@ -108,12 +119,21 @@ def get_team_stats(team_id, league_id):
 def get_matches():
     url = "https://v3.football.api-sports.io/fixtures?next=5"
     headers = {"x-apisports-key": API_KEY}
-    return requests.get(url, headers=headers).json()["response"]
+
+    try:
+        res = requests.get(url, headers=headers).json()
+        return res.get("response", [])
+    except:
+        return []
 
 # ================= APP =================
 st.title("🔥 BAKARY AI PRO MAX ULTRA (PARI SÛR)")
 
 matches = get_matches()
+
+if not matches:
+    st.error("❌ Aucun match trouvé (clé API ou limite atteinte)")
+    st.stop()
 
 for m in matches:
     home = m["teams"]["home"]["name"]
@@ -130,7 +150,6 @@ for m in matches:
 
     home_win, draw, away_win, over25, btts, score = poisson_pred(home_avg, away_avg)
 
-    # ANALYSE INTELLIGENTE
     if home_win > 0.6:
         safe_bet = "Victoire domicile"
         confidence = home_win
@@ -151,11 +170,9 @@ for m in matches:
     st.write(f"⚽ Over2.5: {round(over25*100,1)}% | 🔥 BTTS: {round(btts*100,1)}%")
 
     st.success(f"🎯 Score probable: {score}")
-
     st.error(f"💰 PARI SÛR: {safe_bet}")
     st.info(f"📊 Confiance: {round(confidence*100,1)}%")
 
-    # SAVE
     df = pd.read_csv(DATA_FILE)
     df.loc[len(df)] = [f"{home} vs {away}", safe_bet, str(datetime.now())]
     df.to_csv(DATA_FILE, index=False)
