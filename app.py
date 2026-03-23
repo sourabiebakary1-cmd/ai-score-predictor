@@ -50,34 +50,23 @@ if admin == ADMIN_PASSWORD:
 
     codes = load_codes()
 
-    if st.sidebar.button("🎟 Générer Code 7j"):
+    if st.sidebar.button("🎟 Code 7j"):
         code = "VIP" + str(random.randint(10000,99999))
         codes[code] = {"used": False, "days": 7}
         save_codes(codes)
         st.sidebar.success(code)
 
-    if st.sidebar.button("🎟 Générer Code 30j"):
+    if st.sidebar.button("🎟 Code 30j"):
         code = "VIP" + str(random.randint(10000,99999))
         codes[code] = {"used": False, "days": 30}
         save_codes(codes)
         st.sidebar.success(code)
 
-    st.sidebar.subheader("📊 Clients")
-    clients = []
-    for c in codes:
-        if codes[c].get("used"):
-            clients.append({
-                "Code": c,
-                "Date": codes[c].get("date",""),
-                "Durée": codes[c]["days"]
-            })
-    st.dataframe(pd.DataFrame(clients))
-
 # ================= PAIEMENT =================
 def paiement():
     st.title("💰 ACCÈS VIP")
 
-    st.write("💳 Paiement : Orange Money / Moov / Telecel")
+    st.write("💳 Orange Money / Moov / Telecel")
     st.write("📞 Numéro :", OWNER_NUMBER)
 
     link = f"https://wa.me/{OWNER_NUMBER}?text=Bonjour j'ai payé pour BAKARY AI"
@@ -90,13 +79,13 @@ def paiement():
 
         if code in codes and not codes[code]["used"]:
             codes[code]["used"] = True
-            codes[code]["date"] = str(datetime.now())
             save_codes(codes)
 
             st.session_state.auth = True
             st.session_state.expire = datetime.now() + timedelta(days=codes[code]["days"])
 
             st.success("✅ VIP activé")
+            st.rerun()
         else:
             st.error("❌ Code invalide")
 
@@ -105,66 +94,74 @@ if not st.session_state.auth:
     paiement()
     st.stop()
 
-if st.session_state.expire and datetime.now() > st.session_state.expire:
-    st.error("⛔ Abonnement expiré")
-    st.session_state.auth = False
-    st.stop()
+if st.session_state.expire is not None:
+    if datetime.now() > st.session_state.expire:
+        st.error("⛔ Expiré")
+        st.session_state.auth = False
+        st.stop()
 
-# ================= IA =================
-def poisson_pred(home_avg, away_avg):
-    matrix = [[poisson.pmf(i, home_avg)*poisson.pmf(j, away_avg)
-               for j in range(6)] for i in range(6)]
+# ================= API STATS =================
+def get_team_stats(team_id, league_id):
+    try:
+        url = f"https://v3.football.api-sports.io/teams/statistics?league={league_id}&season=2023&team={team_id}"
+        headers = {"x-apisports-key": API_KEY}
+        res = requests.get(url, headers=headers, timeout=5).json()["response"]
 
-    home_win = sum(matrix[i][j] for i in range(6) for j in range(6) if i>j)
-    away_win = sum(matrix[i][j] for i in range(6) for j in range(6) if i<j)
-    over25 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=3)
+        scored = res["goals"]["for"]["average"]["total"]
+        conceded = res["goals"]["against"]["average"]["total"]
 
-    best_score = "0-0"
-    max_prob = 0
-    for i in range(6):
-        for j in range(6):
-            if matrix[i][j] > max_prob:
-                max_prob = matrix[i][j]
-                best_score = f"{i}-{j}"
-
-    return home_win, away_win, over25, best_score
+        return float(scored), float(conceded)
+    except:
+        return 1.5, 1.5  # fallback
 
 # ================= MATCH =================
 def get_matches():
     try:
         headers = {"x-apisports-key": API_KEY}
-        url = "https://v3.football.api-sports.io/fixtures?date=" + datetime.now().strftime("%Y-%m-%d")
+        url = "https://v3.football.api-sports.io/fixtures?next=5"
         res = requests.get(url, headers=headers, timeout=5).json()
-        matches = res.get("response", [])
-        if matches:
-            return matches
+        if res.get("response"):
+            return res["response"]
     except:
-        pass
+        st.warning("⚠️ API indisponible")
 
-    return [
-        {"teams": {"home": {"name": "Barcelona"}, "away": {"name": "Real Madrid"}}},
-        {"teams": {"home": {"name": "PSG"}, "away": {"name": "Marseille"}}},
-        {"teams": {"home": {"name": "Arsenal"}, "away": {"name": "Chelsea"}}},
-    ]
+    return []
+
+# ================= IA =================
+def analyse(home_avg, away_avg):
+    home_win = home_avg / (home_avg + away_avg)
+    away_win = away_avg / (home_avg + away_avg)
+
+    over25 = (home_avg + away_avg) / 3
+    btts = min(home_avg, away_avg) / 2
+
+    score = f"{round(home_avg)}-{round(away_avg)}"
+
+    return home_win, away_win, over25, btts, score
 
 # ================= APP =================
-st.title("🔥 BAKARY AI PRO MAX (VIP)")
+st.title("🔥 BAKARY AI PRO MAX (IA RÉELLE)")
 
 matches = get_matches()
 
-message = "🔥 PRONOSTICS VIP 🔥\n\n"
+if not matches:
+    st.error("❌ Aucun match (API limite ou clé)")
+    st.stop()
 
-for m in matches[:3]:
+for m in matches[:5]:
     home = m["teams"]["home"]["name"]
     away = m["teams"]["away"]["name"]
 
+    home_id = m["teams"]["home"]["id"]
+    away_id = m["teams"]["away"]["id"]
+    league_id = m["league"]["id"]
+
     st.subheader(f"{home} vs {away}")
 
-    base = random.uniform(1.2, 2.2)
-    home_avg = base + random.uniform(-0.3, 0.5)
-    away_avg = base + random.uniform(-0.5, 0.3)
+    home_avg, home_conc = get_team_stats(home_id, league_id)
+    away_avg, away_conc = get_team_stats(away_id, league_id)
 
-    home_win, away_win, over25, score = poisson_pred(home_avg, away_avg)
+    home_win, away_win, over25, btts, score = analyse(home_avg, away_avg)
 
     if home_win > 0.6:
         bet = "Victoire domicile"
@@ -172,20 +169,19 @@ for m in matches[:3]:
     elif away_win > 0.6:
         bet = "Victoire extérieur"
         conf = away_win
-    else:
+    elif over25 > 0.7:
         bet = "Over 2.5"
         conf = over25
+    elif btts > 0.6:
+        bet = "BTTS OUI"
+        conf = btts
+    else:
+        bet = "Match risqué"
+        conf = max(home_win, away_win)
+
+    st.write(f"🏠 {round(home_win*100,1)}% | 🚀 {round(away_win*100,1)}%")
+    st.write(f"⚽ Over2.5: {round(over25*100,1)}% | 🔥 BTTS: {round(btts*100,1)}%")
 
     st.success(f"🎯 Score: {score}")
-    st.error(f"💰 Pari: {bet}")
+    st.error(f"💰 PARI SÛR: {bet}")
     st.info(f"📊 Confiance: {round(conf*100,1)}%")
-
-    message += f"{home} vs {away}\n{bet} ({round(conf*100,1)}%)\n\n"
-
-# ================= WHATSAPP =================
-st.subheader("📱 ENVOYER AUX CLIENTS")
-
-link = f"https://wa.me/?text={message}"
-st.markdown(f"[📤 Envoyer sur WhatsApp]({link})")
-
-st.text_area("Copie message 👇", message)
