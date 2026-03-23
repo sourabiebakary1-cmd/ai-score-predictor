@@ -13,7 +13,10 @@ if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["match","team_home","team_away","bet","result"]).to_csv(DATA_FILE, index=False)
 
 def load_data():
-    return pd.read_csv(DATA_FILE)
+    try:
+        return pd.read_csv(DATA_FILE)
+    except:
+        return pd.DataFrame(columns=["match","team_home","team_away","bet","result"])
 
 def save_data(df):
     df.to_csv(DATA_FILE, index=False)
@@ -41,7 +44,6 @@ teams = {
 # ================= DATA =================
 data = load_data()
 
-# GLOBAL LEARNING
 win_rate = 0.5
 if len(data) > 0:
     win_rate = (data["result"] == "WIN").mean()
@@ -49,23 +51,34 @@ if len(data) > 0:
 global_boost = 1 + (win_rate - 0.5)
 st.info(f"🌍 Boost global: {round(global_boost,2)}")
 
-# TEAM LEARNING
+# ================= TEAM LEARNING =================
 team_stats = {}
 
-if len(data) > 0:
-    for _, row in data.iterrows():
-        for t in [row["team_home"], row["team_away"]]:
-            if t not in team_stats:
-                team_stats[t] = {"win":0,"total":0}
-            team_stats[t]["total"] += 1
-            if row["result"] == "WIN":
-                team_stats[t]["win"] += 1
+for _, row in data.iterrows():
+    for t in [row["team_home"], row["team_away"]]:
+        if t not in team_stats:
+            team_stats[t] = {"win":0,"total":0}
+        team_stats[t]["total"] += 1
+        if row["result"] == "WIN":
+            team_stats[t]["win"] += 1
 
 def team_boost(team):
     if team in team_stats and team_stats[team]["total"] > 2:
         rate = team_stats[team]["win"] / team_stats[team]["total"]
         return 1 + (rate - 0.5)
     return 1
+
+# ================= MATCH FACILE =================
+def is_easy_match(home, away):
+    hf, ha = teams.get(home, (1.5,1.5))
+    af, aa = teams.get(away, (1.5,1.5))
+
+    if hf > 1.8 and aa > 1.3:
+        return True
+    if af > 1.8 and ha > 1.3:
+        return True
+
+    return False
 
 # ================= IA =================
 def analyse(home, away):
@@ -86,12 +99,12 @@ def analyse(home, away):
     aw = sum(matrix[i][j] for i in range(6) for j in range(6) if i<j)
     draw = sum(matrix[i][j] for i in range(6) for j in range(6) if i==j)
 
+    over15 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=2)
     over25 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=3)
-    btts = sum(matrix[i][j] for i in range(6) for j in range(6) if i>0 and j>0)
 
     options = {
+        "Over 1.5": over15,
         "Over 2.5": over25,
-        "BTTS OUI": btts,
         "Victoire Domicile": hw,
         "Victoire Extérieur": aw
     }
@@ -100,19 +113,18 @@ def analyse(home, away):
     conf = options[best] * global_boost
     conf_percent = round(conf*100,1)
 
-    # DETECTION PIÈGE
     diff = abs(hw - aw)
 
-    if diff < 0.08:
+    if diff < 0.1:
         risk = "PIÈGE ÉLEVÉ"
-    elif draw > 0.3:
+    elif draw > 0.28:
         risk = "MATCH BLOQUÉ"
-    elif conf_percent < 60:
-        risk = "RISQUÉ"
     elif conf_percent > 70:
         risk = "FIABLE"
-    else:
+    elif conf_percent > 60:
         risk = "MOYEN"
+    else:
+        risk = "RISQUÉ"
 
     return best, conf_percent, risk
 
@@ -151,7 +163,7 @@ for home, away in matchs:
     </div>
     """, unsafe_allow_html=True)
 
-    results.append((home, away, bet, risk))
+    results.append((home, away, bet, risk, conf))
 
     if risk == "FIABLE":
         safe_matches.append((home, away, bet, conf))
@@ -164,6 +176,23 @@ if safe_matches:
     st.success(f"{best[0]} vs {best[1]} → {best[2]} ({best[3]}%)")
 else:
     st.warning("Aucun match sûr")
+
+# ================= PARI SÛR DIRECT =================
+st.markdown("## 🎯 PARI SÛR DIRECT")
+
+best_safe = None
+best_score = 0
+
+for home, away, bet, risk, conf in results:
+    if risk == "FIABLE" and is_easy_match(home, away):
+        if conf > best_score:
+            best_score = conf
+            best_safe = (home, away, bet, conf)
+
+if best_safe:
+    st.success(f"🔥 PARI SÛR: {best_safe[0]} vs {best_safe[1]} → {best_safe[2]} ({best_safe[3]}%)")
+else:
+    st.warning("❌ Aucun pari sûr aujourd'hui")
 
 # ================= SAVE =================
 st.markdown("## ✅ ENREGISTRER")
@@ -190,11 +219,7 @@ if len(data) > 0:
     win = (data["result"] == "WIN").sum()
     loss = (data["result"] == "LOSS").sum()
     total = win + loss
-
-    if total > 0:
-        rate = round(win/total*100,1)
-    else:
-        rate = 0
+    rate = round(win/total*100,1) if total > 0 else 0
 
     st.success(f"Win: {win}")
     st.error(f"Loss: {loss}")
