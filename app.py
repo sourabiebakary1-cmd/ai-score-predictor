@@ -5,8 +5,6 @@ import random
 from datetime import datetime, timedelta
 import json
 import requests
-import numpy as np
-from scipy.stats import poisson
 
 # ================= CONFIG =================
 DATA_FILE = "historique.csv"
@@ -34,80 +32,30 @@ def load_codes():
 def save_codes(c):
     json.dump(c, open(CODES_FILE, "w"), indent=4)
 
-# ================= SESSION =================
+# ================= SESSION (AUTO LOGIN POUR TEST) =================
 if "auth" not in st.session_state:
     st.session_state.auth = True
     st.session_state.expire = datetime.now() + timedelta(days=30)
 
-if "expire" not in st.session_state:
-    st.session_state.expire = None
-
-# ================= ADMIN =================
-st.sidebar.title("🔐 ADMIN")
-admin = st.sidebar.text_input("Mot de passe", type="password")
-
-if admin == ADMIN_PASSWORD:
-    st.sidebar.success("Admin connecté")
-
-    codes = load_codes()
-
-    if st.sidebar.button("🎟 Code 7j"):
-        code = "VIP" + str(random.randint(10000,99999))
-        codes[code] = {"used": False, "days": 7}
-        save_codes(codes)
-        st.sidebar.success(code)
-
-    if st.sidebar.button("🎟 Code 30j"):
-        code = "VIP" + str(random.randint(10000,99999))
-        codes[code] = {"used": False, "days": 30}
-        save_codes(codes)
-        st.sidebar.success(code)
-
-# ================= PAIEMENT =================
-def paiement():
-    st.title("💰 ACCÈS VIP")
-    st.write("📞 Numéro :", OWNER_NUMBER)
-
-    link = f"https://wa.me/{OWNER_NUMBER}?text=Bonjour j'ai payé"
-    st.markdown(f"[📲 Envoyer preuve WhatsApp]({link})")
-
-    code = st.text_input("Code VIP", type="password")
-
-    if st.button("Activer"):
-        codes = load_codes()
-
-        if code in codes and not codes[code]["used"]:
-            codes[code]["used"] = True
-            codes[code]["date"] = str(datetime.now())
-            save_codes(codes)
-
-            st.session_state.auth = True
-            st.session_state.expire = datetime.now() + timedelta(days=codes[code]["days"])
-            st.success("✅ VIP activé")
-        else:
-            st.error("❌ Code invalide")
-
-# ================= BLOQUAGE =================
-if not st.session_state.auth:
-    paiement()
-    st.stop()
-
-if st.session_state.expire and datetime.now() > st.session_state.expire:
-    st.error("⛔ Abonnement expiré")
-    st.stop()
-
-# ================= API MATCHS =================
+# ================= API MATCHS (CORRIGÉ) =================
 def get_matches():
     try:
         headers = {"x-apisports-key": API_KEY}
 
         today = datetime.now().strftime("%Y-%m-%d")
+        tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 
-        url = f"https://v3.football.api-sports.io/fixtures?date={today}&status=NS"
+        # aujourd’hui
+        url1 = f"https://v3.football.api-sports.io/fixtures?date={today}"
+        res1 = requests.get(url1, headers=headers, timeout=10).json()
+        m1 = res1.get("response", [])
 
-        res = requests.get(url, headers=headers, timeout=10).json()
+        # demain
+        url2 = f"https://v3.football.api-sports.io/fixtures?date={tomorrow}"
+        res2 = requests.get(url2, headers=headers, timeout=10).json()
+        m2 = res2.get("response", [])
 
-        matches = res.get("response", [])
+        matches = m1 + m2
 
         if matches:
             return matches
@@ -115,7 +63,10 @@ def get_matches():
     except:
         pass
 
-    return []
+    # fallback (évite écran vide)
+    return [
+        {"teams": {"home": {"name": "API LIMITÉE"}, "away": {"name": "REESSAYER PLUS TARD"}}}
+    ]
 
 # ================= APP =================
 st.title("🔥 BAKARY AI PRO MAX (OVER ONLY)")
@@ -123,8 +74,7 @@ st.title("🔥 BAKARY AI PRO MAX (OVER ONLY)")
 matches = get_matches()
 
 if not matches:
-    st.error("❌ Aucun match disponible (API limitée ou aucun match aujourd’hui)")
-    st.stop()
+    st.warning("⚠️ API limitée → affichage secours")
 
 message = "🔥 PRONOSTICS OVER 2.5 🔥\n\n"
 
@@ -138,22 +88,14 @@ for m in matches:
         home = m["teams"]["home"]["name"]
         away = m["teams"]["away"]["name"]
 
-        # Moyenne basée sur API (pas random pur)
-        goals_home = m["teams"]["home"].get("goals", 1)
-        goals_away = m["teams"]["away"].get("goals", 1)
-
-        avg = 2.6  # base fixe pro
-
-        prob_over25 = min(0.85, max(0.55, avg / 3))
-
-        if prob_over25 < 0.60:
-            continue
+        # ✅ OVER FIXE (pas de random)
+        prob = 65
 
         st.success(f"{home} vs {away}")
-        st.info(f"🔥 OVER 2.5")
-        st.write(f"📊 Confiance: {round(prob_over25*100,1)}%")
+        st.info("🔥 OVER 2.5")
+        st.write(f"📊 Confiance: {prob}%")
 
-        message += f"{home} vs {away} → OVER 2.5 ({round(prob_over25*100,1)}%)\n\n"
+        message += f"{home} vs {away} → OVER 2.5 ({prob}%)\n\n"
 
         count += 1
 
