@@ -3,75 +3,89 @@ import numpy as np
 import pandas as pd
 import os
 import random
-import datetime
-import requests
+from datetime import datetime, timedelta
+import json
 
 # ================= CONFIG =================
 DATA_FILE = "historique.csv"
+CODES_FILE = "codes.json"
+OWNER_NUMBER = "07000000"
 
-# 🔥 REMPLACE PAR TON LIEN FIREBASE
-FIREBASE_URL = "https://TON-PROJET.firebaseio.com/users.json"
-
-st.set_page_config(page_title="BAKARY AI VIP 🔥", layout="wide")
-st.set_option('client.showErrorDetails', False)
-
-# ================= 🔐 VIP FIREBASE =================
-def check_vip(code):
-    try:
-        res = requests.get(FIREBASE_URL)
-        data = res.json()
-
-        if not data or code not in data:
-            return False, "⛔ Code invalide"
-
-        expiry = datetime.datetime.strptime(data[code]["expiry"], "%Y-%m-%d")
-
-        if datetime.datetime.now() > expiry:
-            return False, "❌ Abonnement expiré"
-
-        return True, "✅ Accès VIP activé 🔥"
-
-    except:
-        return False, "⚠️ Erreur connexion serveur"
-
-code = st.text_input("🔐 Entrer votre code VIP", type="password")
-
-valid, message = check_vip(code)
-
-if not valid:
-    st.warning(message)
-    st.stop()
-
-st.success(message)
-
-# ================= STYLE =================
-st.markdown("""
-<style>
-.stApp {
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    color: white;
-}
-.card {
-    background: #111;
-    padding: 15px;
-    border-radius: 15px;
-    margin-bottom: 15px;
-}
-.good {color: #00ff99;}
-.mid {color: orange;}
-.low {color: red;}
-</style>
-""", unsafe_allow_html=True)
-
-# ================= INIT =================
+# ================= INIT FILES =================
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
 
+if not os.path.exists(CODES_FILE):
+    with open(CODES_FILE, "w") as f:
+        json.dump({
+            "VIP123": {"BAKARY2026"},
+            "VIP456": {"BAKARY2026"},
+            "VIP789": {"BAKARY2026"}
+        }, f)
+
+# ================= LOAD DATA =================
 def load_data():
     try:
         return pd.read_csv(DATA_FILE)
     except:
         return pd.DataFrame(columns=["match","prediction","result","win"])
+
+def load_codes():
+    try:
+        with open(CODES_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_codes(codes):
+    with open(CODES_FILE, "w") as f:
+        json.dump(codes, f)
+
+# ================= SESSION =================
+if "auth" not in st.session_state:
+    st.session_state["auth"] = False
+
+if "expire_date" not in st.session_state:
+    st.session_state["expire_date"] = None
+
+# ================= PAIEMENT =================
+def paiement():
+    st.title("💰 ACCÈS VIP ORANGE MONEY")
+
+    st.info(f"📲 Envoie 2000 FCFA au : {OWNER_NUMBER}")
+
+    numero = st.text_input("📱 Ton numéro")
+    transaction = st.text_input("🧾 ID Transaction")
+    code = st.text_input("🔑 Code VIP", type="password")
+
+    if st.button("Valider paiement"):
+
+        if not numero or not transaction or not code:
+            st.warning("⚠️ Remplis tous les champs")
+            return
+
+        codes = load_codes()
+
+        if code in codes and not codes[code]["used"]:
+            codes[code]["used"] = True
+            save_codes(codes)
+
+            st.session_state["auth"] = True
+            st.session_state["expire_date"] = datetime.now() + timedelta(days=30)
+
+            st.success("✅ Accès activé")
+        else:
+            st.error("❌ Code invalide ou déjà utilisé")
+
+# 🔒 BLOQUAGE
+if not st.session_state["auth"]:
+    paiement()
+    st.stop()
+
+# 🔒 EXPIRATION
+if datetime.now() > st.session_state["expire_date"]:
+    st.error("⛔ Abonnement expiré")
+    st.stop()
 
 # ================= BANKROLL =================
 if "bankroll" not in st.session_state:
@@ -107,7 +121,6 @@ def xgboost_predict():
         score_away = min(int(np.random.poisson(xg_away)), 4)
 
         total = score_home + score_away
-
         proba = np.clip(((xg_home + xg_away)/4)*100 + form, 55, 85)
 
         btts = "OUI" if score_home > 0 and score_away > 0 else "NON"
@@ -121,14 +134,12 @@ def xgboost_predict():
             conf = "🔴 IA RISQUE"
 
         return score_home, score_away, round(proba,2), conf, btts, over
-
     except:
-        return 1,1,60,"🔴 ERREUR","NON","NON"
+        return 1,1,60,"ERREUR","NON","NON"
 
-def is_trap(proba, sh, sa):
+def is_trap_match(proba, sh, sa):
     return proba > 80 and (sh >= 4 or sa >= 4)
 
-# ================= MATCHS =================
 def generate_matches():
     teams = [
         ("Arsenal","Chelsea"),
@@ -139,10 +150,8 @@ def generate_matches():
     ]
 
     results = []
-
     for h,a in teams:
         sh, sa, proba, conf, btts, over = xgboost_predict()
-
         results.append({
             "match": f"{h} vs {a}",
             "prediction": f"{sh}-{sa}",
@@ -153,61 +162,23 @@ def generate_matches():
             "btts": btts,
             "over": over
         })
-
     return results
 
-# ================= MAIN =================
-st.title("⚽ BAKARY AI VIP 🤖💰")
-st.subheader(f"💰 Bankroll: {st.session_state['bankroll']} FCFA")
-
-if "results" not in st.session_state:
-    st.session_state["results"] = generate_matches()
+# ================= APP =================
+st.title("⚽ BAKARY AI PRO MAX ULTIME 🔥")
 
 if st.button("🔄 Actualiser IA"):
     st.session_state["results"] = generate_matches()
 
+if "results" not in st.session_state:
+    st.session_state["results"] = generate_matches()
+
 best = sorted(st.session_state["results"], key=lambda x: x["proba"], reverse=True)
 
-# ================= DISPLAY =================
-for i, r in enumerate(best):
-
-    color = "good" if r["proba"] > 75 else "mid" if r["proba"] > 65 else "low"
-
-    st.markdown(f"""
-<div class="card">
-<b>⚽ {r['match']}</b><br>
-🎯 Score IA: {r['prediction']}<br>
-📊 Probabilité: <span class="{color}">{r['proba']}%</span><br>
-🧠 {r['confidence']}<br>
-🔥 BTTS: {r['btts']}<br>
-⚽ Over 2.5: {r['over']}
-</div>
-""", unsafe_allow_html=True)
-
-    if is_trap(r["proba"], r["score_home"], r["score_away"]):
-        st.warning("⚠️ MATCH RISQUÉ")
-
-    mise = int(st.session_state["bankroll"] * bet_strategy(r["proba"]))
-    st.write(f"💸 Mise conseillée: {mise} FCFA")
-
-    if st.button(f"💾 Sauvegarder {i}", key=f"s{i}"):
-        df = load_data()
-        new = {
-            "match": r["match"],
-            "prediction": r["prediction"],
-            "result": "",
-            "win": random.choice([0,1])
-        }
-        df = pd.concat([df, pd.DataFrame([new])], ignore_index=True)
-        df.to_csv(DATA_FILE, index=False)
-        st.success("✅ Sauvegardé")
+for r in best:
+    st.write(f"⚽ {r['match']} | 🎯 {r['prediction']} | 📊 {r['proba']}% | {r['confidence']}")
 
 # ================= HISTORIQUE =================
 st.subheader("📊 Historique")
-
 df = load_data()
 st.dataframe(df)
-
-if not df.empty:
-    rate = (df["win"].sum()/len(df))*100
-    st.write(f"📈 Performance: {round(rate,2)}%")
