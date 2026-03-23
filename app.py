@@ -4,7 +4,7 @@ import os
 from scipy.stats import poisson
 import urllib.parse
 
-st.set_page_config(page_title="BAKARY AI ULTRA MAX", layout="wide")
+st.set_page_config(page_title="BAKARY AI GOD MODE", layout="wide")
 
 DATA_FILE = "data.csv"
 
@@ -32,7 +32,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🔥 BAKARY AI ULTRA MAX 🤖💎")
+st.title("🔥 BAKARY AI GOD MODE 😈💎")
 
 # ================= BASE =================
 teams = {
@@ -51,14 +51,21 @@ if len(data) > 0:
 global_boost = 1 + (win_rate - 0.5)
 st.info(f"🌍 Boost IA: {round(global_boost,2)}")
 
-# ================= IA LEARNING =================
+# ================= IA AUTO-CORRECTION =================
+bet_history = data.groupby("bet")["result"].apply(list).to_dict()
+
+def adjust_prob(bet, prob):
+    if bet in bet_history and len(bet_history[bet]) > 5:
+        wins = bet_history[bet].count("WIN")
+        rate = wins / len(bet_history[bet])
+        return prob * (1 + (rate - 0.5))
+    return prob
+
+# ================= TEAM LEARNING =================
 team_stats = {}
 
 for _, row in data.iterrows():
-    home = row["team_home"]
-    away = row["team_away"]
-
-    for t in [home, away]:
+    for t in [row["team_home"], row["team_away"]]:
         if t not in team_stats:
             team_stats[t] = {"attack":1,"defense":1,"win":0,"total":0}
 
@@ -99,19 +106,15 @@ def analyse(home, away):
 
     over15 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=2)
     over25 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=3)
-
-    # 🔥 BTTS
     btts = sum(matrix[i][j] for i in range(1,6) for j in range(1,6))
 
-    # 🔥 SCORE EXACT
-    best_score = max([(i,j,matrix[i][j]) for i in range(6) for j in range(6)], key=lambda x:x[2])
-
+    # 🔥 IA correction appliquée
     options = {
-        "Over 1.5": over15,
-        "Over 2.5": over25,
-        "BTTS OUI": btts,
-        "Victoire Domicile": hw,
-        "Victoire Extérieur": aw
+        "Over 1.5": adjust_prob("Over 1.5", over15),
+        "Over 2.5": adjust_prob("Over 2.5", over25),
+        "BTTS OUI": adjust_prob("BTTS OUI", btts),
+        "Victoire Domicile": adjust_prob("Victoire Domicile", hw),
+        "Victoire Extérieur": adjust_prob("Victoire Extérieur", aw)
     }
 
     best = max(options, key=options.get)
@@ -121,7 +124,6 @@ def analyse(home, away):
 
     diff = abs(hw-aw)
 
-    # 🔥 PIÈGE PRO
     if diff < 0.07:
         risk = "GROS PIÈGE"
     elif draw > 0.32:
@@ -133,7 +135,7 @@ def analyse(home, away):
     else:
         risk = "RISQUÉ"
 
-    return best, conf_percent, risk, btts, best_score
+    return best, conf_percent, risk
 
 # ================= INPUT =================
 st.sidebar.title("⚙️ AJOUT MATCH")
@@ -148,39 +150,53 @@ for i in range(4):
 
 # ================= ANALYSE =================
 results = []
-combo = []
 
 for home, away in matchs:
 
-    bet, conf, risk, btts, score = analyse(home, away)
+    bet, conf, risk = analyse(home, away)
 
-    color = "good" if "FIABLE" in risk else "bad" if "PIÈGE" in risk else "warn"
+    # 🔥 ANTI PERTE
+    if conf < 65 or "PIÈGE" in risk or "RISQUÉ" in risk:
+        st.error(f"❌ {home} vs {away} BLOQUÉ (risque)")
+        continue
+
+    # 🔥 BANKROLL
+    if conf > 80:
+        stake = "5%"
+    elif conf > 70:
+        stake = "3%"
+    else:
+        stake = "1%"
+
+    color = "good" if "FIABLE" in risk else "warn"
 
     st.markdown(f"""
     <div class="block">
     <h3>{home} vs {away}</h3>
     💰 {bet}<br>
     📊 {conf}%<br>
-    ⚽ BTTS: {round(btts*100,1)}%<br>
-    🎯 Score: {score[0]} - {score[1]}<br>
+    📦 Mise: {stake}<br>
     ⚠️ <span class="{color}">{risk}</span>
     </div>
     """, unsafe_allow_html=True)
 
     results.append((home, away, bet, risk, conf))
 
-    if "FIABLE" in risk:
-        combo.append((home, away, bet, conf))
+# ================= PARI DU JOUR =================
+st.markdown("## 🤖 PARI DU JOUR")
 
-# ================= COMBINÉ =================
-st.markdown("## 💰 COMBINÉ INTELLIGENT")
+best_day = None
+best_score = 0
 
-if combo:
-    combo_sorted = sorted(combo, key=lambda x:x[3], reverse=True)[:3]
-    txt = " + ".join([f"{c[0]} vs {c[1]} ({c[2]})" for c in combo_sorted])
-    st.success(f"🔥 COMBINÉ: {txt}")
+for r in results:
+    if r[4] > best_score:
+        best_score = r[4]
+        best_day = r
+
+if best_day:
+    st.success(f"🔥 {best_day[0]} vs {best_day[1]} → {best_day[2]} ({best_day[4]}%)")
 else:
-    st.warning("Aucun combiné fiable")
+    st.warning("❌ Aucun bon pari")
 
 # ================= SAVE =================
 st.markdown("## ✅ ENREGISTRER")
@@ -199,29 +215,3 @@ for i, r in enumerate(results):
         data = pd.concat([data, new], ignore_index=True)
         save_data(data)
         st.success("✅ Sauvegardé")
-
-# ================= STATS =================
-st.markdown("## 📊 STATS")
-
-if len(data) > 0:
-    win = (data["result"] == "WIN").sum()
-    loss = (data["result"] == "LOSS").sum()
-    total = win + loss
-    rate = round(win/total*100,1) if total > 0 else 0
-
-    st.success(f"Win: {win}")
-    st.error(f"Loss: {loss}")
-    st.info(f"Taux: {rate}%")
-else:
-    st.warning("Pas de données")
-
-# ================= WHATSAPP =================
-message = "🔥 BAKARY AI ULTRA MAX 🔥\n\n"
-for r in results:
-    message += f"{r[0]} vs {r[1]} → {r[2]} ({r[3]})\n"
-
-encoded = urllib.parse.quote(message)
-link = f"https://wa.me/?text={encoded}"
-
-st.markdown(f"[📲 Envoyer WhatsApp]({link})")
-st.text_area("Message", message)
