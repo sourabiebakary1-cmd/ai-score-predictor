@@ -1,184 +1,154 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
 import os
 import random
 from datetime import datetime, timedelta
 import json
+import requests
 
 # ================= CONFIG =================
 DATA_FILE = "historique.csv"
 CODES_FILE = "codes.json"
-OWNER_NUMBER = "07000000"
+OWNER_NUMBER = "22607093407"
+ADMIN_PASSWORD = "bakary2026VIP"
+API_KEY = "TA_CLE_API_ICI"
 
-# ================= INIT FILES =================
+st.set_page_config(page_title="BAKARY AI PRO MAX", layout="wide")
+
+# ================= FILES =================
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["match","prediction","result","win"]).to_csv(DATA_FILE, index=False)
 
 if not os.path.exists(CODES_FILE):
     with open(CODES_FILE, "w") as f:
-        json.dump({
-            "VIP123": {"BAKARY2026"},
-            "VIP456": {"BAKARY2026"},
-            "VIP789": {"BAKARY2026"}
-        }, f)
-
-# ================= LOAD DATA =================
-def load_data():
-    try:
-        return pd.read_csv(DATA_FILE)
-    except:
-        return pd.DataFrame(columns=["match","prediction","result","win"])
+        json.dump({}, f)
 
 def load_codes():
-    try:
-        with open(CODES_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {}
+    with open(CODES_FILE, "r") as f:
+        return json.load(f)
 
-def save_codes(codes):
+def save_codes(c):
     with open(CODES_FILE, "w") as f:
-        json.dump(codes, f)
+        json.dump(c, f, indent=4)
 
 # ================= SESSION =================
 if "auth" not in st.session_state:
-    st.session_state["auth"] = False
+    st.session_state.auth = False
 
-if "expire_date" not in st.session_state:
-    st.session_state["expire_date"] = None
+if "expire" not in st.session_state:
+    st.session_state.expire = None
+
+# ================= ADMIN =================
+st.sidebar.title("🔐 ADMIN")
+admin = st.sidebar.text_input("Mot de passe", type="password")
+
+if admin == ADMIN_PASSWORD:
+    st.sidebar.success("Admin connecté")
+
+    codes = load_codes()
+
+    # GENERATE
+    if st.sidebar.button("🎟 Code 7j"):
+        code = "VIP" + str(random.randint(10000,99999))
+        codes[code] = {"used": False, "days": 7}
+        save_codes(codes)
+        st.sidebar.success(code)
+
+    if st.sidebar.button("🎟 Code 30j"):
+        code = "VIP" + str(random.randint(10000,99999))
+        codes[code] = {"used": False, "days": 30}
+        save_codes(codes)
+        st.sidebar.success(code)
+
+    # DASHBOARD
+    st.sidebar.subheader("📊 Stats")
+    total = len(codes)
+    used = len([c for c in codes if codes[c]["used"]])
+    st.sidebar.write(f"Total: {total}")
+    st.sidebar.write(f"Utilisés: {used}")
+
+    # CLIENT LIST
+    st.subheader("📋 LISTE CLIENTS")
+    clients = []
+    for c in codes:
+        if codes[c]["used"]:
+            clients.append({
+                "Code": c,
+                "Numéro": codes[c].get("numero",""),
+                "Date": codes[c].get("date",""),
+                "Durée": codes[c]["days"]
+            })
+    st.dataframe(pd.DataFrame(clients))
 
 # ================= PAIEMENT =================
 def paiement():
-    st.title("💰 ACCÈS VIP ORANGE MONEY")
+    st.title("💰 ACCÈS VIP")
 
-    st.info(f"📲 Envoie 2000 FCFA au : {OWNER_NUMBER}")
+    message = "Bonjour, j'ai payé pour BAKARY AI. ID : "
+    link = f"https://wa.me/{OWNER_NUMBER}?text={message}"
 
-    numero = st.text_input("📱 Ton numéro")
-    transaction = st.text_input("🧾 ID Transaction")
-    code = st.text_input("🔑 Code VIP", type="password")
+    st.markdown(f"[📞 Envoyer preuve WhatsApp]({link})")
 
-    if st.button("Valider paiement"):
+    num = st.text_input("Numéro")
+    trans = st.text_input("Transaction ID")
+    code = st.text_input("Code VIP", type="password")
 
-        if not numero or not transaction or not code:
-            st.warning("⚠️ Remplis tous les champs")
+    if st.button("Activer"):
+        if not num or not trans or not code:
+            st.warning("Remplis tout")
             return
 
         codes = load_codes()
 
         if code in codes and not codes[code]["used"]:
+            days = codes[code]["days"]
+
             codes[code]["used"] = True
+            codes[code]["numero"] = num
+            codes[code]["date"] = str(datetime.now())
+
             save_codes(codes)
 
-            st.session_state["auth"] = True
-            st.session_state["expire_date"] = datetime.now() + timedelta(days=30)
+            st.session_state.auth = True
+            st.session_state.expire = datetime.now() + timedelta(days=days)
 
-            st.success("✅ Accès activé")
+            st.success("VIP activé")
         else:
-            st.error("❌ Code invalide ou déjà utilisé")
+            st.error("Code invalide")
 
 # 🔒 BLOQUAGE
-if not st.session_state["auth"]:
+if not st.session_state.auth:
     paiement()
     st.stop()
 
 # 🔒 EXPIRATION
-if datetime.now() > st.session_state["expire_date"]:
-    st.error("⛔ Abonnement expiré")
+if datetime.now() > st.session_state.expire:
+    st.error("Expiré")
+    st.session_state.auth = False
     st.stop()
 
-# ================= BANKROLL =================
-if "bankroll" not in st.session_state:
-    st.session_state["bankroll"] = 10000
+# ================= API MATCHS =================
+def get_matches():
+    url = "https://v3.football.api-sports.io/fixtures?next=5"
+    headers = {"x-apisports-key": API_KEY}
 
-def bet_strategy(proba):
-    if proba > 80:
-        return 0.08
-    elif proba > 70:
-        return 0.05
-    else:
-        return 0.02
-
-# ================= IA =================
-def get_form_boost():
-    df = load_data()
-    if len(df) < 10:
-        return 0
     try:
-        rate = df["win"].sum() / len(df)
-        return max(min((rate - 0.5) * 15, 8), -8)
+        res = requests.get(url, headers=headers).json()
+        matches = []
+
+        for m in res["response"]:
+            home = m["teams"]["home"]["name"]
+            away = m["teams"]["away"]["name"]
+
+            proba = random.randint(60,90)
+            matches.append(f"{home} vs {away} | {proba}%")
+
+        return matches
     except:
-        return 0
-
-def xgboost_predict():
-    try:
-        form = get_form_boost()
-
-        xg_home = np.clip(random.uniform(0.8, 2.2) + form/30, 0.5, 3)
-        xg_away = np.clip(random.uniform(0.7, 2.0), 0.5, 3)
-
-        score_home = min(int(np.random.poisson(xg_home)), 4)
-        score_away = min(int(np.random.poisson(xg_away)), 4)
-
-        total = score_home + score_away
-        proba = np.clip(((xg_home + xg_away)/4)*100 + form, 55, 85)
-
-        btts = "OUI" if score_home > 0 and score_away > 0 else "NON"
-        over = "OUI" if total >= 3 else "NON"
-
-        if proba > 78:
-            conf = "🟢 IA FORTE"
-        elif proba > 68:
-            conf = "🟡 IA MOYENNE"
-        else:
-            conf = "🔴 IA RISQUE"
-
-        return score_home, score_away, round(proba,2), conf, btts, over
-    except:
-        return 1,1,60,"ERREUR","NON","NON"
-
-def is_trap_match(proba, sh, sa):
-    return proba > 80 and (sh >= 4 or sa >= 4)
-
-def generate_matches():
-    teams = [
-        ("Arsenal","Chelsea"),
-        ("PSG","Marseille"),
-        ("Real Madrid","Barcelona"),
-        ("Milan","Juventus"),
-        ("Bayern","Dortmund")
-    ]
-
-    results = []
-    for h,a in teams:
-        sh, sa, proba, conf, btts, over = xgboost_predict()
-        results.append({
-            "match": f"{h} vs {a}",
-            "prediction": f"{sh}-{sa}",
-            "score_home": sh,
-            "score_away": sa,
-            "proba": proba,
-            "confidence": conf,
-            "btts": btts,
-            "over": over
-        })
-    return results
+        return ["Erreur API"]
 
 # ================= APP =================
-st.title("⚽ BAKARY AI PRO MAX ULTIME 🔥")
+st.title("⚽ BAKARY AI PRO MAX 🔥")
 
-if st.button("🔄 Actualiser IA"):
-    st.session_state["results"] = generate_matches()
-
-if "results" not in st.session_state:
-    st.session_state["results"] = generate_matches()
-
-best = sorted(st.session_state["results"], key=lambda x: x["proba"], reverse=True)
-
-for r in best:
-    st.write(f"⚽ {r['match']} | 🎯 {r['prediction']} | 📊 {r['proba']}% | {r['confidence']}")
-
-# ================= HISTORIQUE =================
-st.subheader("📊 Historique")
-df = load_data()
-st.dataframe(df)
+for m in get_matches():
+    st.success(m)
