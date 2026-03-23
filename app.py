@@ -12,11 +12,10 @@ from scipy.stats import poisson
 DATA_FILE = "historique.csv"
 CODES_FILE = "codes.json"
 OWNER_NUMBER = "22607093407"
+ADMIN_PASSWORD = "bakary2026VIP"
 API_KEY = "289e8418878e48c598507cf2b72338f5"
 
-MODE_TEST = True
-
-st.set_page_config(page_title="BAKARY AI PRO MAX ULTRA", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX", layout="wide")
 
 # ================= FILES =================
 if not os.path.exists(DATA_FILE):
@@ -24,7 +23,92 @@ if not os.path.exists(DATA_FILE):
 
 if not os.path.exists(CODES_FILE):
     with open(CODES_FILE, "w") as f:
-        json.dump({"VIP12345": {"used": False, "days": 30}}, f)
+        json.dump({}, f)
+
+def load_codes():
+    try:
+        return json.load(open(CODES_FILE))
+    except:
+        return {}
+
+def save_codes(c):
+    json.dump(c, open(CODES_FILE, "w"), indent=4)
+
+# ================= SESSION =================
+if "auth" not in st.session_state:
+    st.session_state.auth = False
+
+if "expire" not in st.session_state:
+    st.session_state.expire = None
+
+# ================= ADMIN =================
+st.sidebar.title("🔐 ADMIN")
+admin = st.sidebar.text_input("Mot de passe", type="password")
+
+if admin == ADMIN_PASSWORD:
+    st.sidebar.success("Admin connecté")
+
+    codes = load_codes()
+
+    if st.sidebar.button("🎟 Générer Code 7j"):
+        code = "VIP" + str(random.randint(10000,99999))
+        codes[code] = {"used": False, "days": 7}
+        save_codes(codes)
+        st.sidebar.success(code)
+
+    if st.sidebar.button("🎟 Générer Code 30j"):
+        code = "VIP" + str(random.randint(10000,99999))
+        codes[code] = {"used": False, "days": 30}
+        save_codes(codes)
+        st.sidebar.success(code)
+
+    st.sidebar.subheader("📊 Clients")
+    clients = []
+    for c in codes:
+        if codes[c].get("used"):
+            clients.append({
+                "Code": c,
+                "Date": codes[c].get("date",""),
+                "Durée": codes[c]["days"]
+            })
+    st.dataframe(pd.DataFrame(clients))
+
+# ================= PAIEMENT =================
+def paiement():
+    st.title("💰 ACCÈS VIP")
+
+    st.write("💳 Paiement : Orange Money / Moov / Telecel")
+    st.write("📞 Numéro :", OWNER_NUMBER)
+
+    link = f"https://wa.me/{OWNER_NUMBER}?text=Bonjour j'ai payé pour BAKARY AI"
+    st.markdown(f"[📲 Envoyer preuve WhatsApp]({link})")
+
+    code = st.text_input("Code VIP", type="password")
+
+    if st.button("Activer"):
+        codes = load_codes()
+
+        if code in codes and not codes[code]["used"]:
+            codes[code]["used"] = True
+            codes[code]["date"] = str(datetime.now())
+            save_codes(codes)
+
+            st.session_state.auth = True
+            st.session_state.expire = datetime.now() + timedelta(days=codes[code]["days"])
+
+            st.success("✅ VIP activé")
+        else:
+            st.error("❌ Code invalide")
+
+# ================= BLOQUAGE =================
+if not st.session_state.auth:
+    paiement()
+    st.stop()
+
+if datetime.now() > st.session_state.expire:
+    st.error("⛔ Abonnement expiré")
+    st.session_state.auth = False
+    st.stop()
 
 # ================= IA =================
 def poisson_pred(home_avg, away_avg):
@@ -32,53 +116,45 @@ def poisson_pred(home_avg, away_avg):
                for j in range(6)] for i in range(6)]
 
     home_win = sum(matrix[i][j] for i in range(6) for j in range(6) if i>j)
-    draw = sum(matrix[i][i] for i in range(6))
     away_win = sum(matrix[i][j] for i in range(6) for j in range(6) if i<j)
-
     over25 = sum(matrix[i][j] for i in range(6) for j in range(6) if i+j>=3)
-    btts = sum(matrix[i][j] for i in range(1,6) for j in range(1,6))
 
-    max_prob = 0
     best_score = "0-0"
+    max_prob = 0
     for i in range(6):
         for j in range(6):
             if matrix[i][j] > max_prob:
                 max_prob = matrix[i][j]
                 best_score = f"{i}-{j}"
 
-    return home_win, draw, away_win, over25, btts, best_score
+    return home_win, away_win, over25, best_score
 
 # ================= MATCH =================
 def get_matches():
     try:
         headers = {"x-apisports-key": API_KEY}
         url = "https://v3.football.api-sports.io/fixtures?date=" + datetime.now().strftime("%Y-%m-%d")
-        res = requests.get(url, headers=headers).json()
+        res = requests.get(url, headers=headers, timeout=5).json()
         matches = res.get("response", [])
-
         if matches:
             return matches
     except:
         pass
 
-    # fallback
     return [
         {"teams": {"home": {"name": "Barcelona"}, "away": {"name": "Real Madrid"}}},
         {"teams": {"home": {"name": "PSG"}, "away": {"name": "Marseille"}}},
         {"teams": {"home": {"name": "Arsenal"}, "away": {"name": "Chelsea"}}},
-        {"teams": {"home": {"name": "Bayern"}, "away": {"name": "Dortmund"}}},
-        {"teams": {"home": {"name": "Juventus"}, "away": {"name": "Inter"}}},
     ]
 
 # ================= APP =================
-st.title("🔥 BAKARY AI PRO MAX ULTRA (BUSINESS PRO)")
+st.title("🔥 BAKARY AI PRO MAX (VIP)")
 
 matches = get_matches()
 
-ticket = []
-message_global = "🔥 PRONOSTICS DU JOUR 🔥\n\n"
+message = "🔥 PRONOSTICS VIP 🔥\n\n"
 
-for m in matches[:5]:
+for m in matches[:3]:
     home = m["teams"]["home"]["name"]
     away = m["teams"]["away"]["name"]
 
@@ -88,59 +164,28 @@ for m in matches[:5]:
     home_avg = base + random.uniform(-0.3, 0.5)
     away_avg = base + random.uniform(-0.5, 0.3)
 
-    home_win, draw, away_win, over25, btts, score = poisson_pred(home_avg, away_avg)
+    home_win, away_win, over25, score = poisson_pred(home_avg, away_avg)
 
     if home_win > 0.6:
-        safe_bet = "Victoire domicile"
-        confidence = home_win
+        bet = "Victoire domicile"
+        conf = home_win
     elif away_win > 0.6:
-        safe_bet = "Victoire extérieur"
-        confidence = away_win
-    elif over25 > 0.65:
-        safe_bet = "Over 2.5"
-        confidence = over25
-    elif btts > 0.65:
-        safe_bet = "BTTS OUI"
-        confidence = btts
+        bet = "Victoire extérieur"
+        conf = away_win
     else:
-        safe_bet = "Double chance"
-        confidence = max(home_win, away_win)
+        bet = "Over 2.5"
+        conf = over25
 
-    st.write(f"⚽ {round(home_win*100,1)}% | 🤝 {round(draw*100,1)}% | 🚀 {round(away_win*100,1)}%")
     st.success(f"🎯 Score: {score}")
-    st.error(f"💰 PARI SÛR: {safe_bet}")
-    st.info(f"📊 Confiance: {round(confidence*100,1)}%")
+    st.error(f"💰 Pari: {bet}")
+    st.info(f"📊 Confiance: {round(conf*100,1)}%")
 
-    # MESSAGE WHATSAPP
-    msg = f"⚽ {home} vs {away}\n💰 {safe_bet}\n📊 {round(confidence*100,1)}%\n🎯 {score}\n\n"
-    message_global += msg
+    message += f"{home} vs {away}\n{bet} ({round(conf*100,1)}%)\n\n"
 
-    if confidence > 0.65:
-        ticket.append(f"{home} vs {away} → {safe_bet}")
+# ================= WHATSAPP =================
+st.subheader("📱 ENVOYER AUX CLIENTS")
 
-    # SAVE SECURISÉ
-    try:
-        df = pd.read_csv(DATA_FILE)
-    except:
-        df = pd.DataFrame(columns=["match","prediction","date"])
+link = f"https://wa.me/?text={message}"
+st.markdown(f"[📤 Envoyer sur WhatsApp]({link})")
 
-    df.loc[len(df)] = [f"{home} vs {away}", safe_bet, str(datetime.now())]
-
-    try:
-        df.to_csv(DATA_FILE, index=False)
-    except:
-        pass
-
-# ================= TICKET COMBINE =================
-st.subheader("🎯 TICKET COMBINÉ")
-
-if ticket:
-    for t in ticket:
-        st.write("✅", t)
-else:
-    st.warning("Aucun pari sûr aujourd’hui")
-
-# ================= MESSAGE WHATSAPP =================
-st.subheader("📱 MESSAGE WHATSAPP")
-
-st.text_area("Copie et envoie à tes clients 👇", message_global, height=250)
+st.text_area("Copie message 👇", message)
