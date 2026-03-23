@@ -36,7 +36,8 @@ def save_codes(c):
 
 # ================= SESSION =================
 if "auth" not in st.session_state:
-    st.session_state.auth = False
+    st.session_state.auth = True
+    st.session_state.expire = datetime.now() + timedelta(days=30)
 
 if "expire" not in st.session_state:
     st.session_state.expire = None
