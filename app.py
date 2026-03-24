@@ -1,8 +1,11 @@
 import streamlit as st
 import pandas as pd
 import os
+from PIL import Image
+import pytesseract
+import re
 
-st.set_page_config(page_title="BAKARY AI ULTIMATE", layout="wide")
+st.set_page_config(page_title="BAKARY AI AUTO", layout="wide")
 
 DATA_FILE = "data.csv"
 
@@ -15,15 +18,64 @@ if not os.path.exists(DATA_FILE):
 if "coupon" not in st.session_state:
     st.session_state.coupon = []
 
-st.title("🔥 BAKARY AI ULTIMATE")
+st.title("🔥 BAKARY AI AUTO (Image Scanner)")
 
 menu = st.sidebar.radio("Menu", [
-    "🏠 Accueil",
+    "📸 Import Image",
     "🤖 Matchs IA",
     "🎟️ Coupon",
     "➕ Ajouter",
     "📊 Stats"
 ])
+
+# ================= IA =================
+def extract_matches(text):
+    matches = []
+    
+    # Exemple : Braga 8 : 14 Anderlecht
+    pattern = r"([A-Za-z\s]+)\s(\d+)\s[:]\s(\d+)\s([A-Za-z\s]+)"
+    
+    results = re.findall(pattern, text)
+
+    for r in results:
+        home = r[0].strip()
+        score_home = int(r[1])
+        score_away = int(r[2])
+        away = r[3].strip()
+
+        matches.append([home, away, score_home, score_away])
+
+    return matches
+
+# ================= IMPORT IMAGE =================
+if menu == "📸 Import Image":
+    st.subheader("📸 Scanner les matchs")
+
+    uploaded_file = st.file_uploader("Upload image", type=["png","jpg","jpeg"])
+
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Image chargée")
+
+        text = pytesseract.image_to_string(image)
+
+        st.write("🔍 Texte détecté :")
+        st.text(text)
+
+        matches = extract_matches(text)
+
+        if matches:
+            df = pd.DataFrame(matches, columns=[
+                "team_home","team_away","score_home","score_away"
+            ])
+            df["date"] = pd.Timestamp.now()
+
+            df.to_csv(DATA_FILE, mode='a', header=False, index=False)
+
+            st.success(f"✅ {len(matches)} matchs ajoutés automatiquement !")
+            st.dataframe(df)
+        else:
+            st.warning("⚠️ Aucun match détecté")
 
 # ================= FONCTIONS =================
 def get_data(df, team):
@@ -56,93 +108,72 @@ def predict(t1, t2, df):
 
     return s1, s2, total, conf
 
-# ================= ACCUEIL =================
-if menu == "🏠 Accueil":
-    st.subheader("📊 Dashboard")
-    df = pd.read_csv(DATA_FILE)
-
-    if len(df) > 0:
-        df["total"] = df["score_home"] + df["score_away"]
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Matchs", len(df))
-        col2.metric("Moyenne buts", round(df["total"].mean(), 2))
-        col3.metric("Over 6.5 %", round((df["total"] > 6).mean()*100, 2))
-    else:
-        st.warning("Pas de données")
-
 # ================= MATCHS IA =================
 elif menu == "🤖 Matchs IA":
-    st.subheader("🤖 Générateur de matchs")
+    st.subheader("🤖 Générateur")
 
     df = pd.read_csv(DATA_FILE)
     teams = list(set(df["team_home"]).union(set(df["team_away"])))
 
     if len(teams) < 2:
-        st.warning("Ajoute des matchs d'abord")
+        st.warning("Ajoute des matchs")
     else:
         for i in range(min(10, len(teams)//2)):
             t1 = teams[i]
             t2 = teams[-i-1]
 
             if t1 != t2:
-                s1, s2, total, conf = predict(t1, t2, df)
+                s1,s2,total,conf = predict(t1,t2,df)
 
-                st.markdown(f"### {t1} 🆚 {t2}")
-                st.write(f"🎯 {round(s1)} - {round(s2)} | 🔥 {round(total,2)} buts | 🧠 {conf}%")
+                st.markdown(f"### {t1} vs {t2}")
+                st.write(f"{round(s1)} - {round(s2)} | {round(total,2)} buts | {conf}%")
 
-                col1, col2, col3 = st.columns(3)
+                col1,col2,col3 = st.columns(3)
 
-                if col1.button(f"OVER 5.5 {i}"):
-                    st.session_state.coupon.append(f"{t1} vs {t2} - OVER 5.5")
+                if col1.button(f"O5 {i}"):
+                    st.session_state.coupon.append(f"{t1}-{t2} OVER 5.5")
 
-                if col2.button(f"OVER 6.5 {i}"):
-                    st.session_state.coupon.append(f"{t1} vs {t2} - OVER 6.5")
+                if col2.button(f"O6 {i}"):
+                    st.session_state.coupon.append(f"{t1}-{t2} OVER 6.5")
 
                 if col3.button(f"BTTS {i}"):
-                    st.session_state.coupon.append(f"{t1} vs {t2} - BTTS")
+                    st.session_state.coupon.append(f"{t1}-{t2} BTTS")
 
 # ================= COUPON =================
 elif menu == "🎟️ Coupon":
-    st.subheader("🎟️ Mon Coupon")
+    st.subheader("🎟️ Coupon")
 
     if len(st.session_state.coupon) == 0:
-        st.warning("Aucun pari ajouté")
+        st.warning("Vide")
     else:
-        for bet in st.session_state.coupon:
-            st.write(f"✅ {bet}")
+        for b in st.session_state.coupon:
+            st.write("✅", b)
 
-        st.success(f"Total paris : {len(st.session_state.coupon)}")
-
-        if st.button("❌ Vider coupon"):
+        if st.button("Vider"):
             st.session_state.coupon = []
 
 # ================= AJOUT =================
 elif menu == "➕ Ajouter":
-    st.subheader("➕ Ajouter match")
+    st.subheader("Ajouter match")
 
-    h = st.text_input("Equipe domicile")
-    a = st.text_input("Equipe extérieur")
-    sh = st.number_input("Score domicile", 0, 20)
-    sa = st.number_input("Score extérieur", 0, 20)
+    h = st.text_input("Home")
+    a = st.text_input("Away")
+    sh = st.number_input("Score H",0,20)
+    sa = st.number_input("Score A",0,20)
 
     if st.button("Ajouter"):
-        new = pd.DataFrame([[h, a, sh, sa, pd.Timestamp.now()]],
+        new = pd.DataFrame([[h,a,sh,sa,pd.Timestamp.now()]],
                            columns=["team_home","team_away","score_home","score_away","date"])
         new.to_csv(DATA_FILE, mode='a', header=False, index=False)
-        st.success("Match ajouté")
+        st.success("Ajouté")
 
 # ================= STATS =================
 elif menu == "📊 Stats":
-    st.subheader("📊 Statistiques")
-
     df = pd.read_csv(DATA_FILE)
 
-    if len(df) > 0:
-        df["total"] = df["score_home"] + df["score_away"]
-
+    if len(df)>0:
+        df["total"] = df["score_home"]+df["score_away"]
         st.metric("Matchs", len(df))
-        st.metric("Moyenne", round(df["total"].mean(), 2))
-        st.line_chart(df["total"])
+        st.metric("Moyenne", round(df["total"].mean(),2))
     else:
-        st.warning("Pas de données")
+        st.warning("Pas de data")
