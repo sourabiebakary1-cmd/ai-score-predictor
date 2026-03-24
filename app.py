@@ -9,7 +9,6 @@ st.set_page_config(page_title="BAKARY AI ULTIMATE", layout="wide")
 DATA_FILE = "data.csv"
 
 # ================= FILE =================
-
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["match","team_home","team_away","bet","result"]).to_csv(DATA_FILE, index=False)
 
@@ -23,7 +22,6 @@ def save_data(df):
     df.to_csv(DATA_FILE, index=False)
 
 # ================= STYLE =================
-
 st.markdown("""
 <style>
 .stApp {background: linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:white;}
@@ -37,7 +35,6 @@ st.markdown("""
 st.title("🔥 BAKARY AI ULTIMATE 🤖💎")
 
 # ================= BASE =================
-
 teams = {
     "Real Madrid": (2.0,1.0),"Barcelona": (1.9,1.1),"Man City": (2.2,0.9),
     "Liverpool": (1.8,1.2),"PSG": (2.1,1.1),"Arsenal": (1.7,1.2),
@@ -45,7 +42,6 @@ teams = {
 }
 
 # ================= DATA =================
-
 data = load_data()
 
 win_rate = 0.5
@@ -56,7 +52,6 @@ global_boost = 1 + (win_rate - 0.5)
 st.info(f"🌍 Boost global: {round(global_boost,2)}")
 
 # ================= TEAM LEARNING =================
-
 team_stats = {}
 
 for _, row in data.iterrows():
@@ -74,7 +69,6 @@ def team_boost(team):
     return 1
 
 # ================= MATCH FACILE =================
-
 def is_easy_match(home, away):
     hf, ha = teams.get(home, (1.5,1.5))
     af, aa = teams.get(away, (1.5,1.5))
@@ -87,7 +81,6 @@ def is_easy_match(home, away):
     return False
 
 # ================= IA =================
-
 def analyse(home, away):
 
     hf, ha = teams.get(home, (1.5,1.5))
@@ -136,7 +129,6 @@ def analyse(home, away):
     return best, conf_percent, risk
 
 # ================= INPUT =================
-
 st.sidebar.title("⚙️ AJOUT MATCH")
 
 matchs = []
@@ -148,7 +140,6 @@ for i in range(4):
         matchs.append((home, away))
 
 # ================= ANALYSE =================
-
 results = []
 safe_matches = []
 
@@ -178,7 +169,6 @@ for home, away in matchs:
         safe_matches.append((home, away, bet, conf))
 
 # ================= ULTRA SAFE =================
-
 st.markdown("## 💎 MATCH ULTRA SÛR")
 
 if safe_matches:
@@ -188,7 +178,6 @@ else:
     st.warning("Aucun match sûr")
 
 # ================= PARI SÛR DIRECT =================
-
 st.markdown("## 🎯 PARI SÛR DIRECT")
 
 best_safe = None
@@ -206,7 +195,6 @@ else:
     st.warning("❌ Aucun pari sûr aujourd'hui")
 
 # ================= STATS =================
-
 st.markdown("## 📊 STATS")
 
 if len(data) > 0:
@@ -222,13 +210,12 @@ else:
     st.warning("Pas de données")
 
 # ================= WHATSAPP =================
-
 message = "🔥 BAKARY AI ULTIMATE 🔥\n\n"
 for r in results:
     message += f"{r[0]} vs {r[1]} → {r[2]} ({r[3]})\n"
 
 encoded = urllib.parse.quote(message)
-link = f"https://wa.me/?text={encoded}
+link = f"https://wa.me/?text={encoded}"
 
 st.markdown(f"[📲 Envoyer WhatsApp]({link})")
 st.text_area("Message", message)
