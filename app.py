@@ -1,179 +1,129 @@
 import streamlit as st
 import pandas as pd
 import os
-from PIL import Image
-import pytesseract
-import re
+from scipy.stats import poisson
 
-st.set_page_config(page_title="BAKARY AI AUTO", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO", layout="wide")
 
 DATA_FILE = "data.csv"
 
-# ================= INIT =================
+# ================= STYLE PRO =================
+st.markdown("""
+<style>
+body {background-color: #0e1117;}
+.stApp {background-color: #0e1117; color: white;}
+h1, h2, h3 {color: #00ffcc;}
+</style>
+""", unsafe_allow_html=True)
+
+# ================= INIT DATA =================
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=[
-        "team_home","team_away","score_home","score_away","date"
+        "match", "team_home", "team_away", "bet", "result"
     ]).to_csv(DATA_FILE, index=False)
 
-if "coupon" not in st.session_state:
-    st.session_state.coupon = []
-
-st.title("🔥 BAKARY AI AUTO (Image Scanner)")
-
-menu = st.sidebar.radio("Menu", [
-    "📸 Import Image",
-    "🤖 Matchs IA",
-    "🎟️ Coupon",
-    "➕ Ajouter",
-    "📊 Stats"
+# ================= MENU =================
+menu = st.sidebar.radio("📊 MENU", [
+    "🏠 Accueil", "⚽ Matchs IA", "🎟 Coupon", "➕ Ajouter", "📊 Stats"
 ])
 
-# ================= IA =================
-def extract_matches(text):
-    matches = []
-    
-    # Exemple : Braga 8 : 14 Anderlecht
-    pattern = r"([A-Za-z\s]+)\s(\d+)\s[:]\s(\d+)\s([A-Za-z\s]+)"
-    
-    results = re.findall(pattern, text)
+# ================= ACCUEIL =================
+if menu == "🏠 Accueil":
+    st.title("🔥 BAKARY AI PRO")
+    st.subheader("Robot intelligent de prédiction football")
 
-    for r in results:
-        home = r[0].strip()
-        score_home = int(r[1])
-        score_away = int(r[2])
-        away = r[3].strip()
-
-        matches.append([home, away, score_home, score_away])
-
-    return matches
-
-# ================= IMPORT IMAGE =================
-if menu == "📸 Import Image":
-    st.subheader("📸 Scanner les matchs")
-
-    uploaded_file = st.file_uploader("Upload image", type=["png","jpg","jpeg"])
-
-    if uploaded_file:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Image chargée")
-
-        text = pytesseract.image_to_string(image)
-
-        st.write("🔍 Texte détecté :")
-        st.text(text)
-
-        matches = extract_matches(text)
-
-        if matches:
-            df = pd.DataFrame(matches, columns=[
-                "team_home","team_away","score_home","score_away"
-            ])
-            df["date"] = pd.Timestamp.now()
-
-            df.to_csv(DATA_FILE, mode='a', header=False, index=False)
-
-            st.success(f"✅ {len(matches)} matchs ajoutés automatiquement !")
-            st.dataframe(df)
-        else:
-            st.warning("⚠️ Aucun match détecté")
-
-# ================= FONCTIONS =================
-def get_data(df, team):
-    return df[(df["team_home"] == team) | (df["team_away"] == team)].tail(10)
-
-def stats(df, team):
-    buts, enc = [], []
-    for _, r in df.iterrows():
-        if r["team_home"] == team:
-            buts.append(r["score_home"])
-            enc.append(r["score_away"])
-        elif r["team_away"] == team:
-            buts.append(r["score_away"])
-            enc.append(r["score_home"])
-    if len(buts) == 0:
-        return 5, 5
-    return sum(buts)/len(buts), sum(enc)/len(enc)
-
-def predict(t1, t2, df):
-    d1 = get_data(df, t1)
-    d2 = get_data(df, t2)
-
-    a1, d1v = stats(d1, t1)
-    a2, d2v = stats(d2, t2)
-
-    s1 = (a1 + d2v) / 2
-    s2 = (a2 + d1v) / 2
-    total = s1 + s2
-    conf = min(100, int((total/10)*100))
-
-    return s1, s2, total, conf
+    st.info("💡 Ajoute tes matchs et laisse l'IA analyser")
 
 # ================= MATCHS IA =================
-elif menu == "🤖 Matchs IA":
-    st.subheader("🤖 Générateur")
+elif menu == "⚽ Matchs IA":
+    st.title("⚽ Matchs & Prédictions")
 
     df = pd.read_csv(DATA_FILE)
-    teams = list(set(df["team_home"]).union(set(df["team_away"])))
 
-    if len(teams) < 2:
-        st.warning("Ajoute des matchs")
+    if df.empty:
+        st.warning("⚠️ Aucun match ajouté")
     else:
-        for i in range(min(10, len(teams)//2)):
-            t1 = teams[i]
-            t2 = teams[-i-1]
+        st.dataframe(df)
 
-            if t1 != t2:
-                s1,s2,total,conf = predict(t1,t2,df)
+        st.subheader("🔮 Prédictions IA")
 
-                st.markdown(f"### {t1} vs {t2}")
-                st.write(f"{round(s1)} - {round(s2)} | {round(total,2)} buts | {conf}%")
+        predictions = []
 
-                col1,col2,col3 = st.columns(3)
+        for i, row in df.iterrows():
+            home = row["team_home"]
+            away = row["team_away"]
 
-                if col1.button(f"O5 {i}"):
-                    st.session_state.coupon.append(f"{t1}-{t2} OVER 5.5")
+            # IA améliorée (simulation + logique)
+            home_goals = poisson.rvs(mu=1.6)
+            away_goals = poisson.rvs(mu=1.2)
 
-                if col2.button(f"O6 {i}"):
-                    st.session_state.coupon.append(f"{t1}-{t2} OVER 6.5")
+            if home_goals > away_goals:
+                pred = "1"
+                text = f"✅ {home} gagne"
+            elif home_goals < away_goals:
+                pred = "2"
+                text = f"✅ {away} gagne"
+            else:
+                pred = "X"
+                text = "⚖️ Match nul"
 
-                if col3.button(f"BTTS {i}"):
-                    st.session_state.coupon.append(f"{t1}-{t2} BTTS")
+            predictions.append(pred)
+
+            st.success(f"{home} vs {away} → {text}")
+
+        # STOCKAGE PREDICTIONS
+        st.session_state["predictions"] = predictions
 
 # ================= COUPON =================
-elif menu == "🎟️ Coupon":
-    st.subheader("🎟️ Coupon")
+elif menu == "🎟 Coupon":
+    st.title("🎟 Coupon automatique")
 
-    if len(st.session_state.coupon) == 0:
-        st.warning("Vide")
+    if "predictions" in st.session_state:
+        preds = st.session_state["predictions"]
+
+        st.subheader("💰 Ton coupon généré")
+
+        for i, p in enumerate(preds):
+            st.write(f"Match {i+1} → {p}")
+
+        st.success("🔥 Coupon prêt !")
     else:
-        for b in st.session_state.coupon:
-            st.write("✅", b)
+        st.warning("⚠️ Va dans Matchs IA pour générer")
 
-        if st.button("Vider"):
-            st.session_state.coupon = []
-
-# ================= AJOUT =================
+# ================= AJOUTER =================
 elif menu == "➕ Ajouter":
-    st.subheader("Ajouter match")
+    st.title("➕ Ajouter un match")
 
-    h = st.text_input("Home")
-    a = st.text_input("Away")
-    sh = st.number_input("Score H",0,20)
-    sa = st.number_input("Score A",0,20)
+    col1, col2 = st.columns(2)
 
-    if st.button("Ajouter"):
-        new = pd.DataFrame([[h,a,sh,sa,pd.Timestamp.now()]],
-                           columns=["team_home","team_away","score_home","score_away","date"])
-        new.to_csv(DATA_FILE, mode='a', header=False, index=False)
-        st.success("Ajouté")
+    with col1:
+        home = st.text_input("Équipe domicile")
+
+    with col2:
+        away = st.text_input("Équipe extérieur")
+
+    if st.button("Ajouter le match"):
+        if home and away:
+            new_data = pd.DataFrame([{
+                "match": f"{home} vs {away}",
+                "team_home": home,
+                "team_away": away,
+                "bet": "",
+                "result": ""
+            }])
+
+            new_data.to_csv(DATA_FILE, mode='a', header=False, index=False)
+            st.success("✅ Match ajouté")
+        else:
+            st.error("❌ Remplis tous les champs")
 
 # ================= STATS =================
 elif menu == "📊 Stats":
+    st.title("📊 Statistiques")
+
     df = pd.read_csv(DATA_FILE)
 
-    if len(df)>0:
-        df["total"] = df["score_home"]+df["score_away"]
-        st.metric("Matchs", len(df))
-        st.metric("Moyenne", round(df["total"].mean(),2))
-    else:
-        st.warning("Pas de data")
+    st.metric("Nombre de matchs", len(df))
+
+    if not df.empty:
+        st.dataframe(df.tail(5))
