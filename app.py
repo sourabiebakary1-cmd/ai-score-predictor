@@ -194,6 +194,24 @@ if best_safe:
 else:
     st.warning("❌ Aucun pari sûr aujourd'hui")
 
+# ================= SAVE =================
+st.markdown("## ✅ ENREGISTRER")
+
+for i, r in enumerate(results):
+    res = st.selectbox(f"{r[0]} vs {r[1]}", ["WIN","LOSS"], key=f"res{i}")
+
+    if st.button(f"Sauver {i}", key=f"btn{i}"):
+        new = pd.DataFrame([{
+            "match": f"{r[0]} vs {r[1]}",
+            "team_home": r[0],
+            "team_away": r[1],
+            "bet": r[2],
+            "result": res
+        }])
+        data = pd.concat([data, new], ignore_index=True)
+        save_data(data)
+        st.success("✅ Sauvegardé")
+
 # ================= STATS =================
 st.markdown("## 📊 STATS")
 
