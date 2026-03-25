@@ -4,91 +4,148 @@ import numpy as np
 from scipy.stats import poisson
 import os
 
-st.set_page_config(page_title="ROBOT PRO FIFA 3x3", layout="wide")
+st.set_page_config(page_title="BAKARY AI PRO MAX", layout="wide")
 
-DATA_FILE = "data.csv"
+st.title("🤖 BAKARY AI - AUTO APPRENTISSAGE")
 
-# ================= DATA =================
-if not os.path.exists(DATA_FILE):
-    df = pd.DataFrame(columns=["home","away","home_goals","away_goals"])
-    df.to_csv(DATA_FILE, index=False)
+FILE = "data.csv"
 
-df = pd.read_csv(DATA_FILE)
+# 📂 Charger ou créer base de données
+if os.path.exists(FILE):
+    df = pd.read_csv(FILE)
+else:
+    df = pd.DataFrame(columns=["Team1", "Team2", "Score1", "Score2"])
 
-st.title("🤖 ROBOT PRO FIFA 3x3")
+# 💾 Sauvegarder
+def save_data(df):
+    df.to_csv(FILE, index=False)
 
-# ================= AJOUT MATCH =================
-st.subheader("➕ Ajouter un match")
-
-col1, col2 = st.columns(2)
-home = col1.text_input("Equipe domicile")
-away = col2.text_input("Equipe extérieur")
-
-col3, col4 = st.columns(2)
-hg = col3.number_input("Buts domicile", 0, 20)
-ag = col4.number_input("Buts extérieur", 0, 20)
-
-if st.button("Ajouter"):
-    new = pd.DataFrame([[home, away, hg, ag]], columns=df.columns)
-    df = pd.concat([df, new], ignore_index=True)
-    df.to_csv(DATA_FILE, index=False)
-    st.success("Match ajouté ✅")
-
-# ================= STATS =================
-st.subheader("📊 Données")
-
-if len(df) > 0:
-    teams = pd.concat([df['home'], df['away']]).unique()
-
-    attack = {}
-    defense = {}
-
+# 📊 Calcul stats équipes
+def compute_stats(df):
+    teams = pd.unique(df[['Team1', 'Team2']].values.ravel())
+    stats = {}
+    
     for team in teams:
-        home_games = df[df['home'] == team]
-        away_games = df[df['away'] == team]
-
-        goals_scored = home_games['home_goals'].sum() + away_games['away_goals'].sum()
-        goals_conceded = home_games['away_goals'].sum() + away_games['home_goals'].sum()
-
-        games = len(home_games) + len(away_games)
-
+        matches_home = df[df["Team1"] == team]
+        matches_away = df[df["Team2"] == team]
+        
+        goals_scored = matches_home["Score1"].sum() + matches_away["Score2"].sum()
+        goals_conceded = matches_home["Score2"].sum() + matches_away["Score1"].sum()
+        
+        games = len(matches_home) + len(matches_away)
+        
         if games > 0:
-            attack[team] = goals_scored / games
-            defense[team] = goals_conceded / games
+            stats[team] = {
+                "attack": goals_scored / games,
+                "defense": goals_conceded / games
+            }
+    
+    return stats
 
-# ================= PRÉDICTION =================
-st.subheader("🔮 Prédiction PRO")
+team_stats = compute_stats(df)
 
-col5, col6 = st.columns(2)
-team1 = col5.selectbox("Equipe 1", teams)
-team2 = col6.selectbox("Equipe 2", teams)
-
-if st.button("Prédire 🔥"):
-
-    avg_goals = df['home_goals'].mean()
-
-    lambda1 = attack[team1] * defense[team2] / avg_goals
-    lambda2 = attack[team2] * defense[team1] / avg_goals
-
+# 🔮 Prédiction IA
+def predict(team1, team2):
+    if team1 not in team_stats or team2 not in team_stats:
+        return None
+    
+    a1 = team_stats[team1]["attack"]
+    d1 = team_stats[team1]["defense"]
+    
+    a2 = team_stats[team2]["attack"]
+    d2 = team_stats[team2]["defense"]
+    
+    lambda1 = a1 * d2
+    lambda2 = a2 * d1
+    
+    # Score probable
     max_goals = 10
-
-    prob_matrix = np.zeros((max_goals, max_goals))
-
+    best_prob = 0
+    best_score = (0, 0)
+    
     for i in range(max_goals):
         for j in range(max_goals):
-            prob_matrix[i][j] = poisson.pmf(i, lambda1) * poisson.pmf(j, lambda2)
+            prob = poisson.pmf(i, lambda1) * poisson.pmf(j, lambda2)
+            if prob > best_prob:
+                best_prob = prob
+                best_score = (i, j)
+    
+    total = lambda1 + lambda2
+    
+    # 🎯 Over
+    over = "OVER 8.5 🔥" if total > 8 else "UNDER ⚠️"
+    
+    # 🤝 BTTS
+    btts = "OUI ✅" if lambda1 > 1 and lambda2 > 1 else "NON ❌"
+    
+    # 🏆 Winner
+    if lambda1 > lambda2:
+        winner = team1
+    elif lambda2 > lambda1:
+        winner = team2
+    else:
+        winner = "NUL"
+    
+    # 💰 Confiance
+    confidence = min(100, int((total / 10) * 100))
+    
+    return {
+        "score": f"{best_score[0]} - {best_score[1]}",
+        "over": over,
+        "btts": btts,
+        "winner": winner,
+        "confidence": confidence
+    }
 
-    home_win = np.sum(np.tril(prob_matrix, -1))
-    draw = np.sum(np.diag(prob_matrix))
-    away_win = np.sum(np.triu(prob_matrix, 1))
+# ➕ Ajouter match (APPRENTISSAGE)
+st.subheader("➕ Ajouter un match (apprentissage)")
 
-    st.write("### 📊 Probabilités")
-    st.write(f"🏠 {team1} gagne : {home_win:.2%}")
-    st.write(f"🤝 Nul : {draw:.2%}")
-    st.write(f"🚀 {team2} gagne : {away_win:.2%}")
+team1_add = st.text_input("Equipe 1")
+team2_add = st.text_input("Equipe 2")
+score1_add = st.number_input("Score 1", 0, 20)
+score2_add = st.number_input("Score 2", 0, 20)
 
-    # Score le plus probable
-    result = np.unravel_index(np.argmax(prob_matrix), prob_matrix.shape)
+if st.button("Enregistrer le match"):
+    new_row = {
+        "Team1": team1_add,
+        "Team2": team2_add,
+        "Score1": score1_add,
+        "Score2": score2_add
+    }
+    
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    save_data(df)
+    
+    st.success("✅ Match enregistré - IA améliorée !")
 
-    st.write("### 🎯 Score probable")
-    st.success(f"{team1} {result[0]} - {result[1]} {team2}")
+# 🔮 Prédiction
+st.subheader("🔮 Prédire un match")
+
+teams = list(team_stats.keys())
+
+if len(teams) > 1:
+    team1 = st.selectbox("Equipe 1", teams)
+    team2 = st.selectbox("Equipe 2", teams)
+    
+    if st.button("Lancer IA"):
+        result = predict(team1, team2)
+        
+        if result:
+            st.success(f"📊 Score : {result['score']}")
+            st.info(result["over"])
+            st.info(f"BTTS : {result['btts']}")
+            st.success(f"🏆 {result['winner']}")
+            
+            # Confiance
+            if result["confidence"] > 70:
+                st.success(f"💰 TRÈS FIABLE ({result['confidence']}%)")
+            elif result["confidence"] > 50:
+                st.warning(f"⚠️ MOYEN ({result['confidence']}%)")
+            else:
+                st.error(f"❌ RISQUÉ ({result['confidence']}%)")
+        else:
+            st.warning("Pas assez de données")
+
+# 📋 Historique
+st.subheader("📋 Historique des matchs")
+st.dataframe(df)
