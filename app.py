@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import math
 import os
+from sklearn.linear_model import LogisticRegression
 
 FILE = "data.csv"
 
@@ -34,7 +35,7 @@ def get_stats(team):
     games = df[(df["teamA"] == team) | (df["teamB"] == team)]
 
     if len(games) < 3:
-        return 2.2, 2.2
+        return 1.5, 1.5  # mieux que 2.0
 
     games = games.tail(5)
 
@@ -51,6 +52,35 @@ def get_stats(team):
     return sum(gf)/len(gf), sum(ga)/len(ga)
 
 # -------------------------
+# ML
+# -------------------------
+
+def train_model():
+    if len(df) < 20:
+        return None
+
+    X, y = [], []
+
+    for _, row in df.iterrows():
+        a_atk, a_def = get_stats(row["teamA"])
+        b_atk, b_def = get_stats(row["teamB"])
+
+        X.append([a_atk, a_def, b_atk, b_def])
+
+        if row["scoreA"] > row["scoreB"]:
+            y.append(0)
+        elif row["scoreA"] == row["scoreB"]:
+            y.append(1)
+        else:
+            y.append(2)
+
+    model = LogisticRegression(max_iter=500)
+    model.fit(X, y)
+    return model
+
+model = train_model()
+
+# -------------------------
 # PREDICTION
 # -------------------------
 
@@ -63,20 +93,20 @@ if st.button("PRÉDIRE"):
         a_atk, a_def = get_stats(teamA)
         b_atk, b_def = get_stats(teamB)
 
-        # PROBA COTES
-        invA = 1 / oddA
-        invD = 1 / oddD
-        invB = 1 / oddB
+        # ML
+        if model:
+            probA_ml, probD_ml, probB_ml = model.predict_proba([[a_atk, a_def, b_atk, b_def]])[0]
+        else:
+            probA_ml, probD_ml, probB_ml = 0.4, 0.2, 0.4
 
-        total = invA + invD + invB
+        # -------------------------
+        # POISSON AMÉLIORÉ
+        # -------------------------
 
-        probA_odds = invA / total
-        probD_odds = invD / total
-        probB_odds = invB / total
-
-        # POISSON
         lambdaA = (a_atk + b_def) / 2
         lambdaB = (b_atk + a_def) / 2
+
+        lambdaA *= 1.1  # avantage domicile
 
         probA_p = probD_p = probB_p = 0
         score_matrix = {}
@@ -93,82 +123,89 @@ if st.button("PRÉDIRE"):
                 else:
                     probB_p += p
 
-        # FUSION
-        probA = (probA_odds * 0.6) + (probA_p * 0.4)
-        probD = (probD_odds * 0.6) + (probD_p * 0.4)
-        probB = (probB_odds * 0.6) + (probB_p * 0.4)
+        # Fusion ML + Poisson
+        probA = probA_ml * 0.6 + probA_p * 0.4
+        probD = probD_ml * 0.6 + probD_p * 0.4
+        probB = probB_ml * 0.6 + probB_p * 0.4
 
         st.subheader("📊 Probabilités")
         st.write(f"{teamA}: {probA*100:.2f}%")
         st.write(f"Nul: {probD*100:.2f}%")
         st.write(f"{teamB}: {probB*100:.2f}%")
 
-        # SCORE
+        # SCORE EXACT
         best_score = max(score_matrix, key=score_matrix.get)
         st.subheader("🎯 Score probable")
         st.success(f"{teamA} {best_score[0]} - {best_score[1]} {teamB}")
 
-        # GOALS
+        # -------------------------
+        # ANALYSE BUTS
+        # -------------------------
+
         avg_goals = lambdaA + lambdaB
 
         st.subheader("⚽ Analyse Buts")
 
-        if avg_goals > 3.5:
+        if avg_goals > 3:
             st.success("🔥 OVER 2.5 buts")
-        elif avg_goals > 2.5:
-            st.warning("⚖️ OVER 2.5 (risqué)")
         else:
-            st.error("❄️ UNDER 2.5")
+            st.warning("⚖️ UNDER 2.5 buts")
 
         # BTTS
-        btts_prob = 1 - (poisson(0, lambdaA) + poisson(0, lambdaB) - (poisson(0, lambdaA)*poisson(0, lambdaB)))
+        btts_prob = 1 - (poisson(0, lambdaA) + poisson(0, lambdaB))
 
         st.subheader("🤝 BTTS (les 2 marquent)")
-        if btts_prob > 0.6:
+        if btts_prob > 0.55:
             st.success("✅ OUI")
         else:
-            st.error("❌ NON")
+            st.warning("❌ NON")
 
-        # VALUE
+        # -------------------------
+        # VALUE BET SÉCURISÉ
+        # -------------------------
+
         valueA = probA * oddA
         valueD = probD * oddD
         valueB = probB * oddB
+
+        # filtre valeurs absurdes
+        if valueA > 5: valueA = 0
+        if valueD > 5: valueD = 0
+        if valueB > 5: valueB = 0
 
         st.subheader("💰 Value Bet")
         st.write(f"{teamA}: {valueA:.2f}")
         st.write(f"Nul: {valueD:.2f}")
         st.write(f"{teamB}: {valueB:.2f}")
 
-        # DECISION PRO MAX 🔥
-        best = max({"A":valueA,"D":valueD,"B":valueB}, key=lambda x: {"A":valueA,"D":valueD,"B":valueB}[x])
-        confidence = max(probA, probD, probB)
+        # -------------------------
+        # DÉCISION INTELLIGENTE
+        # -------------------------
 
         st.subheader("🎯 Décision Finale")
 
-        if confidence < 0.50:
-            st.error("🚫 NE PAS PARIER (match équilibré)")
+        best_value = max(valueA, valueD, valueB)
+        best_prob = max(probA, probD, probB)
 
-        elif max(valueA, valueD, valueB) < 1.20:
-            st.error("🚫 NE PAS PARIER (pas de value)")
-
-        elif best == "B" and probB < 0.25:
-            st.error(f"🚫 PARI PIÈGE sur {teamB}")
-
-        elif best == "A" and probA < 0.25:
-            st.error(f"🚫 PARI PIÈGE sur {teamA}")
-
+        if best_prob < 0.45:
+            st.error("🚫 NE PAS PARIER (faible confiance)")
+        elif best_value < 1.10:
+            st.warning("⚖️ MATCH ÉQUILIBRÉ")
         else:
-            if best == "A":
-                st.success(f"🔥 PARIER: {teamA}")
-            elif best == "D":
-                st.warning("⚖️ PARIER: NUL")
+            if best_value == valueA:
+                st.success(f"🔥 Parier sur {teamA}")
+            elif best_value == valueD:
+                st.warning("⚖️ Parier sur Nul")
             else:
-                st.success(f"🔥 PARIER: {teamB}")
+                st.success(f"🔥 Parier sur {teamB}")
 
-            st.progress(int(confidence * 100))
-            st.write(f"🔥 Confiance: {confidence*100:.2f}%")
+            st.progress(int(best_prob * 100))
+            st.write(f"🔥 Confiance: {best_prob*100:.2f}%")
 
+# -------------------------
 # SAVE
+# -------------------------
+
 st.subheader("📥 Ajouter résultat réel")
 
 scoreA = st.number_input("Score A", min_value=0)
