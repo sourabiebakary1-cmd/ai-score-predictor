@@ -2,14 +2,13 @@ import streamlit as st
 import pandas as pd
 import math
 import os
-from sklearn.linear_model import LogisticRegression
 
 FILE = "data.csv"
 
 st.set_page_config(page_title="BAKARY AI PRO MAX ULTIMATE", layout="wide")
 
 st.title("🤖 BAKARY AI PRO MAX ULTIMATE")
-st.write("🔥 IA + Score Exact + Over/Under + FIFA FC 25")
+st.write("🔥 IA + Score Exact + Over/Under + BTTS + FIFA FC 25")
 
 # Charger données
 if os.path.exists(FILE):
@@ -35,7 +34,7 @@ def get_stats(team):
     games = df[(df["teamA"] == team) | (df["teamB"] == team)]
 
     if len(games) < 3:
-        return 2.0, 2.0
+        return 2.2, 2.2
 
     games = games.tail(5)
 
@@ -52,35 +51,6 @@ def get_stats(team):
     return sum(gf)/len(gf), sum(ga)/len(ga)
 
 # -------------------------
-# ML
-# -------------------------
-
-def train_model():
-    if len(df) < 15:
-        return None
-
-    X, y = [], []
-
-    for _, row in df.iterrows():
-        a_atk, a_def = get_stats(row["teamA"])
-        b_atk, b_def = get_stats(row["teamB"])
-
-        X.append([a_atk, a_def, b_atk, b_def])
-
-        if row["scoreA"] > row["scoreB"]:
-            y.append(0)
-        elif row["scoreA"] == row["scoreB"]:
-            y.append(1)
-        else:
-            y.append(2)
-
-    model = LogisticRegression(max_iter=300)
-    model.fit(X, y)
-    return model
-
-model = train_model()
-
-# -------------------------
 # PREDICTION
 # -------------------------
 
@@ -93,21 +63,26 @@ if st.button("PRÉDIRE"):
         a_atk, a_def = get_stats(teamA)
         b_atk, b_def = get_stats(teamB)
 
-        # ML
-        if model:
-            probA_ml, probD_ml, probB_ml = model.predict_proba([[a_atk, a_def, b_atk, b_def]])[0]
-        else:
-            probA_ml, probD_ml, probB_ml = 0.34, 0.32, 0.34
+        # 🔥 PROBA COTES
+        invA = 1 / oddA
+        invD = 1 / oddD
+        invB = 1 / oddB
 
-        # POISSON
-        lambdaA = a_atk * 1.3
-        lambdaB = b_atk * 1.3
+        total = invA + invD + invB
+
+        probA_odds = invA / total
+        probD_odds = invD / total
+        probB_odds = invB / total
+
+        # 🔥 POISSON
+        lambdaA = (a_atk + b_def) / 2
+        lambdaB = (b_atk + a_def) / 2
 
         probA_p = probD_p = probB_p = 0
         score_matrix = {}
 
-        for i in range(0, 8):
-            for j in range(0, 8):
+        for i in range(0, 6):
+            for j in range(0, 6):
                 p = poisson(i, lambdaA) * poisson(j, lambdaB)
                 score_matrix[(i, j)] = p
 
@@ -118,31 +93,43 @@ if st.button("PRÉDIRE"):
                 else:
                     probB_p += p
 
-        # Fusion
-        probA = probA_ml * 0.65 + probA_p * 0.35
-        probD = probD_ml * 0.65 + probD_p * 0.35
-        probB = probB_ml * 0.65 + probB_p * 0.35
+        # 🔥 FUSION
+        probA = (probA_odds * 0.6) + (probA_p * 0.4)
+        probD = (probD_odds * 0.6) + (probD_p * 0.4)
+        probB = (probB_odds * 0.6) + (probB_p * 0.4)
 
         st.subheader("📊 Probabilités")
         st.write(f"{teamA}: {probA*100:.2f}%")
         st.write(f"Nul: {probD*100:.2f}%")
         st.write(f"{teamB}: {probB*100:.2f}%")
 
-        # SCORE EXACT
+        # SCORE
         best_score = max(score_matrix, key=score_matrix.get)
         st.subheader("🎯 Score probable")
         st.success(f"{teamA} {best_score[0]} - {best_score[1]} {teamB}")
 
-        # OVER / UNDER
+        # GOALS
         avg_goals = lambdaA + lambdaB
 
-        st.subheader("⚽ Over / Under")
-        if avg_goals > 5:
-            st.success("🔥 OVER 4.5 buts")
-        else:
-            st.warning("⚖️ UNDER 4.5 buts")
+        st.subheader("⚽ Analyse Buts")
 
-        # VALUE BET
+        if avg_goals > 3.5:
+            st.success("🔥 OVER 2.5 buts")
+        elif avg_goals > 2.5:
+            st.warning("⚖️ OVER 2.5 (risqué)")
+        else:
+            st.error("❄️ UNDER 2.5")
+
+        # BTTS
+        btts_prob = 1 - (poisson(0, lambdaA) + poisson(0, lambdaB) - (poisson(0, lambdaA)*poisson(0, lambdaB)))
+
+        st.subheader("🤝 BTTS (les 2 marquent)")
+        if btts_prob > 0.6:
+            st.success("✅ OUI")
+        else:
+            st.error("❌ NON")
+
+        # VALUE
         valueA = probA * oddA
         valueD = probD * oddD
         valueB = probB * oddB
@@ -152,13 +139,13 @@ if st.button("PRÉDIRE"):
         st.write(f"Nul: {valueD:.2f}")
         st.write(f"{teamB}: {valueB:.2f}")
 
-        # DECISION
+        # DECISION PRO
         best = max({"A":valueA,"D":valueD,"B":valueB}, key=lambda x: {"A":valueA,"D":valueD,"B":valueB}[x])
         confidence = max(probA, probD, probB)
 
         st.subheader("🎯 Décision Finale")
 
-        if confidence < 0.52 or max(valueA,valueD,valueB) < 1.05:
+        if confidence < 0.45 or max(valueA,valueD,valueB) < 1.15:
             st.error("🚫 NE PAS PARIER")
         else:
             if best == "A":
@@ -171,9 +158,7 @@ if st.button("PRÉDIRE"):
             st.progress(int(confidence*100))
             st.write(f"🔥 Confiance: {confidence*100:.2f}%")
 
-# -------------------------
 # SAVE
-# -------------------------
 
 st.subheader("📥 Ajouter résultat réel")
 
