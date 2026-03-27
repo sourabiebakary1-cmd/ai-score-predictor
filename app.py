@@ -1,105 +1,95 @@
 import streamlit as st
+import math
+import os
+import csv
 
-st.set_page_config(page_title="BAKARY AI PRO MAX", layout="wide")
+# ===== CONFIG =====
+st.set_page_config(page_title="FC 25 Predictor PRO", layout="centered")
 
-st.title("🤖 BAKARY AI PRO MAX - INTELLIGENT")
+st.title("⚽ 1xBet - FC 25 Champions League")
+st.subheader("Prédicteur + Auto-Apprentissage")
+
+FILE = "data.csv"
+
+# ===== CRÉER FICHIER SI N'EXISTE PAS =====
+if not os.path.exists(FILE):
+    with open(FILE, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["home", "away", "hg", "ag"])
 
 # ===== INPUT =====
-team_a = st.text_input("Equipe A")
-team_b = st.text_input("Equipe B")
+st.header("📥 Entrée des données")
 
-cote_a = st.number_input("Cote A", value=2.0)
-cote_draw = st.number_input("Cote Nul", value=3.2)
-cote_b = st.number_input("Cote B", value=2.0)
+team_home = st.text_input("🏠 Équipe A")
+team_away = st.text_input("✈️ Équipe B")
 
-type_match = st.selectbox("Type de match", ["FIFA", "REEL"])
+odd_home = st.number_input("📊 Cote A", min_value=1.01, step=0.01)
+odd_draw = st.number_input("📊 Cote Nul", min_value=1.01, step=0.01)
+odd_away = st.number_input("📊 Cote B", min_value=1.01, step=0.01)
 
-# ===== CALCUL =====
-if st.button("ANALYSER"):
+# ===== APPRENTISSAGE (MOYENNE DES BUTS) =====
+def learn_goals():
+    total_goals = 0
+    count = 0
+    with open(FILE, "r") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            total_goals += int(row["hg"]) + int(row["ag"])
+            count += 1
+    return total_goals / count if count > 0 else 2.5
 
-    p_a = 1 / cote_a
-    p_draw = 1 / cote_draw
-    p_b = 1 / cote_b
+# ===== PRÉDICTION =====
+if st.button("🚀 Lancer la prédiction"):
 
-    total = p_a + p_draw + p_b
+    p_home = 1 / odd_home
+    p_draw = 1 / odd_draw
+    p_away = 1 / odd_away
 
-    p_a /= total
+    total = p_home + p_draw + p_away
+    p_home /= total
     p_draw /= total
-    p_b /= total
+    p_away /= total
 
-    st.subheader("📊 Probabilités")
-    st.write(f"{team_a}: {round(p_a*100,2)}%")
-    st.write(f"Nul: {round(p_draw*100,2)}%")
-    st.write(f"{team_b}: {round(p_b*100,2)}%")
+    st.header("📊 Probabilités")
+    st.write(f"{team_home} : {p_home*100:.2f}%")
+    st.write(f"Nul : {p_draw*100:.2f}%")
+    st.write(f"{team_away} : {p_away*100:.2f}%")
 
-    max_proba = max(p_a, p_b, p_draw)
+    # ===== AUTO LEARNING =====
+    avg_goals = learn_goals()
 
-    # ===== DETECTION MATCH =====
-    ecart = abs(p_a - p_b)
+    lambda_home = avg_goals * (p_home + 0.5 * p_draw)
+    lambda_away = avg_goals * (p_away + 0.5 * p_draw)
 
-    if ecart < 0.1:
-        type_game = "ÉQUILIBRÉ"
-    elif p_a > p_b:
-        type_game = "FAVORI " + team_a
-    else:
-        type_game = "FAVORI " + team_b
+    st.header("⚙️ Buts attendus")
+    st.write(f"{team_home} : {lambda_home:.2f}")
+    st.write(f"{team_away} : {lambda_away:.2f}")
 
-    st.subheader("🧠 Type de match")
-    st.info(type_game)
+    def poisson(k, lam):
+        return (lam ** k * math.exp(-lam)) / math.factorial(k)
 
-    # ===== ANALYSE BUTS =====
-    btts = False
-    over25 = False
+    scores = []
+    for i in range(7):
+        for j in range(7):
+            prob = poisson(i, lambda_home) * poisson(j, lambda_away)
+            scores.append(((i, j), prob))
 
-    if p_a > 0.35 and p_b > 0.35:
-        btts = True
+    scores.sort(key=lambda x: x[1], reverse=True)
 
-    if (p_a + p_b) > 0.75:
-        over25 = True
+    st.header("🔥 Top 5 scores")
+    for rank, ((i, j), prob) in enumerate(scores[:5], start=1):
+        st.write(f"{rank}. {team_home} {i}-{j} {team_away} ({prob*100:.2f}%)")
 
-    st.subheader("⚽ Analyse Buts")
+# ===== AJOUT RÉSULTAT (APPRENTISSAGE) =====
+st.markdown("---")
+st.header("🧠 Ajouter résultat (apprentissage)")
 
-    if btts:
-        st.write("✔️ BTTS OUI")
-    else:
-        st.write("❌ BTTS NON")
+hg = st.number_input("Buts équipe A", min_value=0, step=1)
+ag = st.number_input("Buts équipe B", min_value=0, step=1)
 
-    if over25:
-        st.write("✔️ OVER 2.5")
-    else:
-        st.write("❌ UNDER 2.5")
+if st.button("💾 Enregistrer le match"):
+    with open(FILE, "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([team_home, team_away, hg, ag])
 
-    # ===== DECISION INTELLIGENTE =====
-    st.subheader("🎯 Décision Finale")
-
-    decision = "⚠️ PAS DE PARI"
-
-    # CAS FIFA
-    if type_match == "FIFA":
-        if btts and over25:
-            decision = "🔥 PARIER OVER 2.5"
-        elif btts:
-            decision = "✅ PARIER BTTS"
-        else:
-            decision = "⚠️ PAS DE PARI"
-
-    # CAS MATCH REEL
-    else:
-        if max_proba < 0.5:
-            decision = "⚠️ PAS DE PARI"
-        elif type_game.startswith("FAVORI"):
-            decision = "✅ DOUBLE CHANCE"
-        elif btts and over25:
-            decision = "🔥 OVER 2.5"
-        else:
-            decision = "⚠️ PAS DE PARI"
-
-    st.success(decision)
-
-    # ===== SCORE ESTIMATION =====
-    st.subheader("📈 Score estimé")
-
-    goals_a = round(p_a * 3)
-    goals_b = round(p_b * 3)
-
-    st.write(f"Score probable: {goals_a} - {goals_b}")
+    st.success("✅ Match enregistré ! Le robot apprend...")
