@@ -63,7 +63,7 @@ if st.button("PRÉDIRE"):
         a_atk, a_def = get_stats(teamA)
         b_atk, b_def = get_stats(teamB)
 
-        # 🔥 PROBA COTES
+        # PROBA COTES
         invA = 1 / oddA
         invD = 1 / oddD
         invB = 1 / oddB
@@ -74,7 +74,7 @@ if st.button("PRÉDIRE"):
         probD_odds = invD / total
         probB_odds = invB / total
 
-        # 🔥 POISSON
+        # POISSON
         lambdaA = (a_atk + b_def) / 2
         lambdaB = (b_atk + a_def) / 2
 
@@ -93,7 +93,7 @@ if st.button("PRÉDIRE"):
                 else:
                     probB_p += p
 
-        # 🔥 FUSION
+        # FUSION
         probA = (probA_odds * 0.6) + (probA_p * 0.4)
         probD = (probD_odds * 0.6) + (probD_p * 0.4)
         probB = (probB_odds * 0.6) + (probB_p * 0.4)
@@ -139,27 +139,36 @@ if st.button("PRÉDIRE"):
         st.write(f"Nul: {valueD:.2f}")
         st.write(f"{teamB}: {valueB:.2f}")
 
-        # DECISION PRO
+        # DECISION PRO MAX 🔥
         best = max({"A":valueA,"D":valueD,"B":valueB}, key=lambda x: {"A":valueA,"D":valueD,"B":valueB}[x])
         confidence = max(probA, probD, probB)
 
         st.subheader("🎯 Décision Finale")
 
-        if confidence < 0.45 or max(valueA,valueD,valueB) < 1.15:
-            st.error("🚫 NE PAS PARIER")
+        if confidence < 0.50:
+            st.error("🚫 NE PAS PARIER (match équilibré)")
+
+        elif max(valueA, valueD, valueB) < 1.20:
+            st.error("🚫 NE PAS PARIER (pas de value)")
+
+        elif best == "B" and probB < 0.25:
+            st.error(f"🚫 PARI PIÈGE sur {teamB}")
+
+        elif best == "A" and probA < 0.25:
+            st.error(f"🚫 PARI PIÈGE sur {teamA}")
+
         else:
             if best == "A":
-                st.success(f"🔥 Parier sur {teamA}")
+                st.success(f"🔥 PARIER: {teamA}")
             elif best == "D":
-                st.warning("⚖️ Parier sur Nul")
+                st.warning("⚖️ PARIER: NUL")
             else:
-                st.success(f"🔥 Parier sur {teamB}")
+                st.success(f"🔥 PARIER: {teamB}")
 
-            st.progress(int(confidence*100))
+            st.progress(int(confidence * 100))
             st.write(f"🔥 Confiance: {confidence*100:.2f}%")
 
 # SAVE
-
 st.subheader("📥 Ajouter résultat réel")
 
 scoreA = st.number_input("Score A", min_value=0)
